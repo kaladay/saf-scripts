@@ -45,7 +45,7 @@ main(){
   if [[ $parameters_total -gt 0 ]] ; then
     while [[ $i -lt $parameters_total ]] ; do
       let i++
-      parameter=${!i}
+      parameter="${!i}"
 
       if [[ $grab_next == "" ]] ; then
         if [[ $parameter == "-c" || $parameter == "--checksum" ]] ; then
@@ -67,7 +67,7 @@ main(){
         elif [[ $parameter == "-r" || $parameter == "--rename_to" ]] ; then
           grab_next="$parameter"
         elif [[ $source_directory == "" ]] ; then
-          source_directory=$parameter
+          source_directory="$parameter"
         else
           extra_parameters[${extra_parameters_total}]=$parameter
           let extra_parameters_total++
