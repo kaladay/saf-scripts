@@ -25,7 +25,7 @@ main(){
   local change_log="changes.log"
   local document_name_prefix="document-"
   local contents_file="contents"
-  local bundle_name="  bundle:ORIGINAL"
+  local bundle_name="$(echo -e "\tbundle:ORIGINAL")"
   local -i preserve=0
   local grab_next=
 
