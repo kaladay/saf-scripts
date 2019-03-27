@@ -212,7 +212,7 @@ process_documents() {
   local -A checksums_order=
   local -A checksums_all=
 
-  # remo auto-added index of 0.
+  # remove auto-added index of 0.
   unset checksums[0]
   unset checksums_all[0]
 
@@ -456,7 +456,6 @@ rebuild_contents_file() {
     echo "Cleared '$file_path$contents_file'." >> $change_log
   fi
 
-  # convert checksums to an ordered array so that a reverse order can be processed.
   let i=0
   for checksum in ${!checksums[*]} ; do
     file_name=${checksums[$checksum]}
