@@ -91,24 +91,24 @@ main(){
 
   if [[ $grab_next != "" ]] ; then
     echo
-    echo -e "$c_r${c_e}ERROR: missing parameter for '$c_n$grab_next$c_r$c_e'"
+    echo_error "missing parameter for '$c_n$grab_next$c_e'"
     echo
     return
   elif [[ $(echo "$checksum_command" | grep -o "^[[:space:]]*-") != "" || $(type -p "$checksum_command") == "" ]] ; then
     echo
-    echo -e "$c_r${c_e}ERROR: invalid checksum program '$c_n$checksum_command$c_r$c_e'"
+    echo_error "invalid checksum program '$c_n$checksum_command$c_e'"
     echo
     return
   elif [[ $extra_parameters_total -gt 0 ]] ; then
     let i=0
     echo
-    echo -e -n "$c_r${c_e}ERROR: only one source directory may be specified at a time, you specified '$c_n$source_directory$c_r$c_e'"
+    local custom_message="only one source directory may be specified at a time, you specified '$c_n$source_directory$c_e'"
     while [[ $i -lt $extra_parameters_total ]] ; do
       parameter=${extra_parameters[i]}
-      echo -e -n ", '$c_n$parameter$c_r$c_e'"
+      custom_message="$custom_message, '$c_n$parameter$c_e'"
       let i++
     done
-    echo -e ".$c_r"
+    echo_error "$custom_message."
     echo
 
     return
@@ -119,21 +119,21 @@ main(){
   else
     if [[ ! -r $source_directory ]] ; then
       echo
-      echo -e "${c_e}ERROR: The source directory '$c_n$source_directory$c_e' not found or not readable.$c_r"
+      echo_error "The source directory '$c_n$source_directory$c_e' not found or not readable."
       echo
       return
     fi
 
     if [[ ! -d $source_directory ]] ; then
       echo
-      echo -e "${c_e}ERROR: The source directory '$c_n$source_directory$c_e' not a valid directory.$c_r"
+      echo_error "The source directory '$c_n$source_directory$c_e' not a valid directory."
       echo
       return
     fi
 
     if [[ ! -x $source_directory ]] ; then
       echo
-      echo -e "${c_e}ERROR: The source directory '$c_n$source_directory$c_e' not executable.$c_r"
+      echo_error "The source directory '$c_n$source_directory$c_e' not executable."
       echo
       return
     fi
@@ -170,7 +170,7 @@ process_content() {
 
   if [[ $files == "" ]] ; then
     echo
-    echo -e "${c_e}ERROR: Did not find any files named '$c_n$contents_file$c_e' inside of the directory '$c_n$source_directory$c_e'.$c_r"
+    echo_error "Did not find any files named '$c_n$contents_file$c_e' inside of the directory '$c_n$source_directory$c_e'."
     echo
     return
   fi
@@ -179,20 +179,20 @@ process_content() {
     echo
     echo -e "${c_t}Now Proccessing Set:$c_r $c_n$file$c_r"
 
-    echo >> $change_log
-    echo "===== Begin Set: '$file' =====" >> $change_log
+    log_out
+    log_out "===== Begin Set: '$file' ====="
 
     file_path=$(dirname $file)
 
     if [[ $file_path == "" ]] ; then
       echo
-      echo -e "  ${c_w}WARNING: Failed to process directory path for '$c_n$file$c_w', skipping set.$c_r"
+      echo_warn "Failed to process directory path for '$c_n$file$c_w', skipping set." 2
       continue
     fi
 
     if [[ ! -w $file_path ]] ; then
       echo
-      echo -e "  ${c_w}WARNING: The directory path '$c_n$file_path$c_w' is not writable, skipping set.$c_r"
+      echo_warn "The directory path '$c_n$file_path$c_w' is not writable, skipping set." 2
       continue
     fi
 
@@ -218,26 +218,26 @@ process_documents() {
 
   if [[ $documents == "" ]] ; then
     echo
-    echo -e "  ${c_w}WARNING: No documents described in '$c_n$file$c_w', skipping set.$c_r"
+    echo_warn "No documents described in '$c_n$file$c_w', skipping set." 2
     echo
-    echo "No documents found in '$file', skipping set." >> $change_log
+    log_warn "No documents found in '$file', skipping set."
     return
   fi
 
   for document in $documents ; do
     if [[ ! -r $file_path$document ]] ; then
       echo
-      echo -e "  ${c_w}WARNING: Document '$c_n$file_path$document$c_w' not found or not readable, skipping set.$c_r"
+      echo_error "Document '$c_n$file_path$document$c_e' not found or not readable, skipping set." 2
       echo
-      echo "Not found or readable document '$file_path$document', skipping set." >> $change_log
+      log_error "Not found or readable document '$file_path$document', skipping set."
       return
     fi
 
     if [[ ! -w $file_path$document ]] ; then
       echo
-      echo -e "  ${c_w}WARNING: Document '$c_n$file_path$document$c_w' not writable, skipping set.$c_r"
+      echo_error "Document '$c_n$file_path$document$c_e' not writable, skipping set." 2
       echo
-      echo "Not writable document '$file_path$document', skipping set." >> $change_log
+      log_error "Not writable document '$file_path$document', skipping set."
       return
     fi
 
@@ -246,24 +246,24 @@ process_documents() {
 
     if [[ $? -ne 0 ]] ; then
       echo
-      echo -e "  ${c_w}WARNING: Checksum generation for '$c_n$file_path$document$c_w' failed, skipping set.$c_r"
+      echo_error "Checksum generation for '$c_n$file_path$document$c_e' failed, skipping set." 2
       echo
-      echo "Checksums generation failed for document '$file_path$document', skipping set." >> $change_log
+      log_error "Checksums generation failed for document '$file_path$document', skipping set."
       return
     fi
 
     checksum=$(echo $checksum | sed -e 's|[[:space:]][[:space:]]*[^[:space:]].*$||')
     if [[ $checksum == "" ]] ; then
       echo
-      echo -e "  ${c_w}WARNING: Failed to process checksum results for '$c_n$file_path$document$c_w', skipping set.$c_r"
+      echo_error "Failed to process checksum results for '$c_n$file_path$document$c_e', skipping set." 2
       echo
-      echo "Process checksum failed for document '$file_path$document', skipping set." >> $change_log
+      log_error "Process checksum failed for document '$file_path$document', skipping set."
       return
     fi
 
     if [[ ${checksums[$checksum]} == "" ]] ; then
       echo -e "    Checksum: (new)       '$c_i$checksum$c_r'."
-      echo "New checksum found '$checksum', document '$file_path$document'." >> $change_log
+      log_out "New checksum found '$checksum', document '$file_path$document'."
       checksums[$checksum]="$document";
 
       # array order is not guaranteed.
@@ -271,7 +271,7 @@ process_documents() {
       checksums_order[$checksum]=${#checksums[*]};
     else
       echo -e "    Checksum: (duplicate) '$c_i$checksum$c_r'."
-      echo "Duplicate checksum found '$checksum', document '$file_path$document'." >> $change_log
+      log_out "Duplicate checksum found '$checksum', document '$file_path$document'."
     fi
 
     checksums_all[$document]="$checksum"
@@ -313,21 +313,21 @@ rename_documents_to_checksum() {
 
     if [[ $? -ne 0 ]] ; then
       echo
-      echo -e "      ${c_w}WARNING: Something went wrong while moving '$c_n$file_path$file_name_old$c_w' to '$c_n$file_path$file_name_new$c_w'.$c_n"
+      echo_error "Something went wrong while moving '$c_n$file_path$file_name_old$c_e' to '$c_n$file_path$file_name_new$c_e'." 6
       echo
-      echo "Failed to move '$file_path$file_name_old' to '$file_path$file_name_new'." >> $change_log
+      log_error "Failed to move '$file_path$file_name_old' to '$file_path$file_name_new'."
       break
     else
-      echo "Renamed '$file_path$file_name_old' to '$file_path$file_name_new'." >> $change_log
+      log_out "Renamed '$file_path$file_name_old' to '$file_path$file_name_new'."
     fi
   done
 
   for file_name_old in ${!checksums_all[*]} ; do
     if [[ -e $file_path$file_name_old ]] ; then
       echo
-      echo -e "    ${c_w}WARNING: Filename '$c_n$file_path$file_name_old$c_w' not renamed, resetting changes to entire set.$c_n"
+      echo_error "File '$c_n$file_path$file_name_old$c_e' not renamed, resetting changes to entire set." 4
       echo
-      echo "Filename not renamed '$file_path$file_name_old', resetting changes to entire set." >> $change_log
+      log_error "File not renamed '$file_path$file_name_old', resetting changes to entire set."
       let failure=1
       break
     fi
@@ -348,9 +348,9 @@ rename_documents_to_checksum() {
 
         if [[ $? -eq 0 ]] ; then
           files_to_delete="$files_to_delete$file_name_new "
-          echo "Restored '$file_path$file_name_old' from '$file_path$file_name_new'." >> $change_log
+          log_out "Restored '$file_path$file_name_old' from '$file_path$file_name_new'."
         else
-          echo "Failed to restore '$file_path$file_name_old' from '$file_path$file_name_new'." >> $change_log
+          log_warn "Failed to restore '$file_path$file_name_old' from '$file_path$file_name_new'."
           let revert_failure=1
         fi
       fi
@@ -363,11 +363,11 @@ rename_documents_to_checksum() {
 
           if [[ $? -ne 0 ]] ; then
             echo
-            echo -e "      ${c_w}WARNING: Something went wrong while deleting '$c_n$file_path$file_to_delete$c_w'.$c_n"
+            echo_warn "Something went wrong while deleting '$c_n$file_path$file_to_delete$c_w'." 6
             echo
-            echo "Attempted but failed to delete '$file_path$file_to_delete'." >> $change_log
+            log_warn "Attempted but failed to delete '$file_path$file_to_delete'."
           else
-            echo "Deleted '$file_path$file_to_delete'." >> $change_log
+            log_out "Deleted '$file_path$file_to_delete'."
           fi
         fi
       done
@@ -408,12 +408,12 @@ rename_checksums_to_document() {
 
     if [[ $? -ne 0 ]] ; then
       echo
-      echo -e "      ${c_w}WARNING: Something went wrong while moving '$c_n$file_path$file_name_checksum$c_w' to '$c_n$file_path$file_name_desired$c_w'.$c_n"
+      echo_error "Something went wrong while moving '$c_n$file_path$file_name_checksum$c_e' to '$c_n$file_path$file_name_desired$c_e'." 6
       echo
-      echo "Attempted but failed to move '$file_path$file_name_checksum' to '$file_path$file_name_desired'." >> $change_log
+      log_error "Attempted but failed to move '$file_path$file_name_checksum' to '$file_path$file_name_desired'."
       return 1
     else
-      echo "Renamed '$file_path$file_name_checksum' to '$file_path$file_name_desired'." >> $change_log
+      log_out "Renamed '$file_path$file_name_checksum' to '$file_path$file_name_desired'."
     fi
   done
 
@@ -433,12 +433,12 @@ rebuild_contents_file() {
 
     if [[ $? -ne 0 ]] ; then
       echo
-      echo -e "      ${c_w}WARNING: Something went wrong while deleting '$c_n$file_path$contents_file$c_w'.$c_n"
+      echo_warn "Something went wrong while deleting '$c_n$file_path$contents_file$c_w'." 6
       echo
-      echo "Failed to delete unnecessary '$file_path$contents_file'." >> $change_log
+      log_warn "Failed to delete unnecessary '$file_path$contents_file'."
       let failure=1
     else
-      echo "Deleted unnecessary '$file_path$contents_file' (no files to upload)." >> $change_log
+      log_out "Deleted unnecessary '$file_path$contents_file' (no files to upload)."
     fi
 
     return $failure
@@ -448,12 +448,12 @@ rebuild_contents_file() {
 
   if [[ $? -ne 0 ]] ; then
     echo
-    echo -e "      ${c_w}WARNING: Something went wrong while clearing '$c_n$file_path$contents_file$c_w'.$c_n"
+    echo_error "Something went wrong while clearing '$c_n$file_path$contents_file$c_e'." 6
     echo
-    echo "Failed to clear '$file_path$contents_file'." >> $change_log
+    log_error "Failed to clear '$file_path$contents_file'."
     return 1
   else
-    echo "Cleared '$file_path$contents_file'." >> $change_log
+    log_out "Cleared '$file_path$contents_file'."
   fi
 
   let i=0
@@ -473,12 +473,12 @@ rebuild_contents_file() {
 
     if [[ $? -ne 0 ]] ; then
       echo
-      echo -e "      ${c_w}WARNING: Something went wrong while appending '$c_n$document_line$c_w' to '$c_n$file_path$contents_file$c_w'.$c_n"
+      echo_error "Something went wrong while appending '$c_n$document_line$c_e' to '$c_n$file_path$contents_file$c_e'." 6
       echo
-      echo "Failed to append '$document_line' to '$file_path$contents_file'." >> $change_log
+      log_error "Failed to append '$document_line' to '$file_path$contents_file'."
       let failure=1
     else
-      echo "Appended '$document_line' to '$file_path$contents_file'." >> $change_log
+      log_out "Appended '$document_line' to '$file_path$contents_file'."
     fi
   done
 
@@ -487,13 +487,50 @@ rebuild_contents_file() {
 
   if [[ $? -ne 0 ]] ; then
     echo
-    echo -e "      ${c_w}WARNING: Something went wrong while remove last line from '$c_n$file_path$contents_file$c_w'.$c_n"
+    echo_warn "Something went wrong while remove last line from '$c_n$file_path$contents_file$c_w'." 6
     echo
-    echo "Failed to remove last line from '$file_path$contents_file'." >> $change_log
+    log_warn "Failed to remove last line from '$file_path$contents_file'."
     let failure=1
   fi
 
   return $failure
+}
+
+log_error() {
+  local message=$1
+  echo "Error: $message" >> $change_log
+}
+
+log_warn() {
+  local message=$1
+  echo "Warning: $message" >> $change_log
+}
+
+log_out() {
+  local message=$1
+  echo "$message" >> $change_log
+}
+
+echo_error() {
+  local message=$1
+
+  echo_pad $2
+  echo -e "${c_e}ERROR: $message$c_r"
+}
+
+echo_warn() {
+  local message=$1
+
+  echo_pad $2
+  echo -e "${c_w}WARNING: $message$c_r"
+}
+
+echo_pad() {
+  local -i padding=$1
+
+  if [[ $padding -gt 0 ]] ; then
+    printf "%${padding}s" " "
+  fi
 }
 
 main $*
@@ -505,3 +542,9 @@ unset process_documents
 unset rename_documents_to_checksum
 unset rename_checksums_to_document
 unset rebuild_contents_file
+unset log_error
+unset log_warn
+unset log_out
+unset echo_error
+unset echo_warn
+unset echo_pad
