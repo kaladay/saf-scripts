@@ -9,7 +9,7 @@
 # When "--preserve" is not used, all files will be renamed to something like 'document-1.pdf' (original extension will be preserved).
 #
 # depends on the following userspace commands:
-#   dirname, file, grep, sed, md5sum (or compatible, like shasum)
+#   dirname, file, grep, sed, md5sum (or compatible, like shasum), touch
 
 main(){
   local script_pathname=$0
@@ -134,6 +134,14 @@ main(){
     if [[ ! -x $source_directory ]] ; then
       echo
       echo_error "The source directory '$c_n$source_directory$c_e' not executable."
+      echo
+      return
+    fi
+
+    touch -f $change_log
+    if [[ $? -ne 0 ]] ; then
+      echo
+      echo_error "Unable to write to log file '$c_n$change_log$c_e'."
       echo
       return
     fi
