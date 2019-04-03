@@ -27,8 +27,10 @@ main(){
   local contents_file="contents"
   local bundle_name="$(echo -e "\tbundle:ORIGINAL")"
   local -i preserve=0
-  local -i silent=0
+  local -i output_mode=0
   local grab_next=
+  local -i progress_printed=0
+  local -i echo_buffer_count=0
 
   if [[ $(type -p date) ]] ; then
     change_log="changes-$(date +'%Y_%m_%d').log"
@@ -68,7 +70,17 @@ main(){
         elif [[ $parameter == "-r" || $parameter == "--rename_to" ]] ; then
           grab_next="$parameter"
         elif [[ $parameter == "-s" || $parameter == "--silent" ]] ; then
-          let silent=1
+          if [[ $output_mode -eq 0 ]] ; then
+            let output_mode=1
+          elif [[ $output_mode -eq 2 ]] ; then
+            let output_mode=3
+          fi
+        elif [[ $parameter == "-P" || $parameter == "--progress" ]] ; then
+          if [[ $output_mode -eq 0 ]] ; then
+            let output_mode=2
+          elif [[ $output_mode -eq 1 ]] ; then
+            let output_mode=3
+          fi
         elif [[ $source_directory == "" ]] ; then
           source_directory="$parameter"
         else
@@ -118,8 +130,8 @@ main(){
   fi
 
   if [[ $get_help -eq 1 || $i -eq 0 ]] ; then
-    if [[ $silent -eq 1 ]] ; then
-      let silent=0
+    if [[ $output_mode -ne 0 || $output_mode -ne 3 ]] ; then
+      let output_mode=0
       echo_warn "Output is not suppressed when help is to be displayed."
     fi
 
@@ -175,35 +187,42 @@ print_help() {
   echo_out_e " -${c_i}p${c_r}, --${c_i}preserve${c_r}   Preserve the original file names instead of renaming."
   echo_out_e " -${c_i}r${c_r}, --${c_i}rename_to${c_r}  Specify a custom rename to filename prefix (currently: '$c_n$document_name_prefix$c_r')."
   echo_out_e " -${c_i}s${c_r}, --${c_i}silent${c_r}     Do not print to the screen."
+  echo_out_e " -${c_i}P${c_r}, --${c_i}progress${c_r}   Display progress instead of normal output (partially implies -s)."
   echo_out
   echo_out_e "When --${c_i}preserve${c_r} is used, --${c_i}rename_to${c_r} is ignored."
   echo_out
 }
 
 process_content() {
-  local file=
-  local files=$(find $source_directory -type f -name $contents_file)
+  local set=
+  local sets=$(find $source_directory -type f -name $contents_file)
   local file_path=
+  local -i document_current=1
+  local -i document_total=0
 
-  if [[ $files == "" ]] ; then
+  if [[ $sets == "" ]] ; then
     echo_out
     echo_error "Did not find any files named '$c_n$contents_file$c_e' inside of the directory '$c_n$source_directory$c_e'."
     echo_out
     return
   fi
 
-  for file in $files ; do
+  if [[ $output_mode -eq 2 || $output_mode -eq 3 ]] ; then
+    count_documents
+  fi
+
+  for set in $sets ; do
     echo_out
-    echo_out_e "${c_t}Now Proccessing Set:$c_r $c_n$file$c_r"
+    echo_out_e "${c_t}Now Processing Set:$c_r $c_n$set$c_r"
 
     log_out
-    log_out "===== Begin Set: '$file' ====="
+    log_out "===== Begin Set: '$set' ====="
 
-    file_path=$(dirname $file)
+    file_path=$(dirname $set)
 
     if [[ $file_path == "" ]] ; then
       echo_out
-      echo_warn "Failed to process directory path for '$c_n$file$c_w', skipping set." 2
+      echo_warn "Failed to process directory path for '$c_n$set$c_w', skipping set." 2
       continue
     fi
 
@@ -219,11 +238,17 @@ process_content() {
 
     echo_out_e "  ${c_n}Done$c_r"
   done
+
+  if [[ $output_mode -eq 2 || $output_mode -eq 3 ]] ; then
+    let document_current--
+    echo_progress "${c_t}Finished Processing:$c_r $c_i$document_current$c_r of $c_i$document_total$c_r documents."
+    echo
+  fi
 }
 
 process_documents() {
   local document=
-  local documents=$(grep -o '^document-[[:digit:]]*\.pdf\>' $file)
+  local documents=$(grep -o '^document-[[:digit:]]*\.pdf\>' $set)
   local checksum=
   local -A checksums=
   local -A checksums_order=
@@ -235,18 +260,21 @@ process_documents() {
 
   if [[ $documents == "" ]] ; then
     echo_out
-    echo_warn "No documents described in '$c_n$file$c_w', skipping set." 2
+    echo_warn "No documents described in '$c_n$set$c_w', skipping set." 2
     echo_out
-    log_warn "No documents found in '$file', skipping set."
+    log_warn "No documents found in '$set', skipping set."
     return
   fi
 
   for document in $documents ; do
+    echo_progress "${c_t}Processing:$c_r $document_current of $document_total, set: '$c_i$set$c_r', document name: '$c_i$document$c_r'."
+
     if [[ ! -r $file_path$document ]] ; then
       echo_out
       echo_error "Document '$c_n$file_path$document$c_e' not found or not readable, skipping set." 2
       echo_out
       log_error "Not found or readable document '$file_path$document', skipping set."
+      let document_current++
       continue
     fi
 
@@ -255,6 +283,7 @@ process_documents() {
       echo_error "Document '$c_n$file_path$document$c_e' not writable, skipping set." 2
       echo_out
       log_error "Not writable document '$file_path$document', skipping set."
+      let document_current++
       continue
     fi
 
@@ -266,6 +295,7 @@ process_documents() {
       echo_error "Checksum generation for '$c_n$file_path$document$c_e' failed, skipping set." 2
       echo_out
       log_error "Checksums generation failed for document '$file_path$document', skipping set."
+      let document_current++
       continue
     fi
 
@@ -275,6 +305,7 @@ process_documents() {
       echo_error "Failed to process checksum results for '$c_n$file_path$document$c_e', skipping set." 2
       echo_out
       log_error "Process checksum failed for document '$file_path$document', skipping set."
+      let document_current++
       continue
     fi
 
@@ -294,6 +325,7 @@ process_documents() {
     checksums_all[$document]="$checksum"
 
     echo_out
+    let document_current++
   done
 
   rename_documents_to_checksum
@@ -305,6 +337,18 @@ process_documents() {
   if [[ $? -eq 0 ]] ; then
     rebuild_contents_file
   fi
+}
+
+count_documents() {
+  local document=
+  local documents=
+
+  for set in $sets ; do
+    documents=$(grep -o '^document-[[:digit:]]*\.pdf\>' $set)
+    for document in $documents ; do
+      let document_total++
+    done
+  done
 }
 
 rename_documents_to_checksum() {
@@ -529,37 +573,105 @@ log_out() {
 }
 
 echo_out() {
-  if [[ $silent -eq 0 ]] ; then
-    echo "$*"
+  local message=$1
+
+  if [[ $output_mode -eq 0 ]] ; then
+    echo "$message"
   fi
 }
 
 echo_out_e() {
-  if [[ $silent -eq 0 ]] ; then
-    echo -e "$*"
+  local message=$1
+
+  if [[ $output_mode -eq 0 ]] ; then
+    echo -e "$message"
+  fi
+}
+
+echo_progress() {
+  local message=$1
+  local depth=$2
+
+  if [[ $output_mode -eq 2 || $output_mode -eq 3 ]] ; then
+    if [[ $progress_printed -eq 0 ]] ; then
+      let progress_printed=1
+    else
+      echo_clear
+      echo -ne "\r$c_r"
+    fi
+
+    echo_pad $depth
+    echo_count "$message"
+    echo -ne "$message"
   fi
 }
 
 echo_error() {
   local message=$1
+  local depth=$2
 
-  echo_pad $2
-  echo_out_e "${c_e}ERROR: $message$c_r"
+  if [[ $output_mode -eq 0 || $output_mode -eq 2 ]] ; then
+    # remove progress line so that the current warning or error can replace it.
+    if [[ $progress_printed -eq 1 && $output_mode -eq 2 ]] ; then
+      echo_progress
+    fi
+
+    echo_pad $depth
+    echo -e "${c_e}ERROR: $message$c_r"
+
+    if [[ $progress_printed -eq 1 && $output_mode -eq 2 ]] ; then
+      let progress_printed=0
+    fi
+  fi
 }
 
 echo_warn() {
   local message=$1
+  local depth=$2
 
-  echo_pad $2
-  echo_out_e "${c_w}WARNING: $message$c_r"
+  if [[ $output_mode -eq 0 || $output_mode -eq 2 ]] ; then
+    # remove progress line so that the current warning or error can replace it.
+    if [[ $progress_printed -eq 1 && $output_mode -eq 2 ]] ; then
+      echo_progress
+    fi
+
+    echo_pad $depth
+    echo -e "${c_w}WARNING: $message$c_r"
+
+    if [[ $progress_printed -eq 1 && $output_mode -eq 2 ]] ; then
+      let progress_printed=0
+    fi
+  fi
 }
 
 echo_pad() {
-  local -i padding=$1
+  local -i depth=$1
 
-  if [[ $silent -eq 0 && $padding -gt 0 ]] ; then
-    printf "%${padding}s" " "
+  if [[ $depth -gt 0 ]] ; then
+    printf "%${depth}s" " "
   fi
+}
+
+echo_count() {
+  local c_r=""
+  local c_t=""
+  local c_e=""
+  local c_w=""
+  local c_h=""
+  local c_n=""
+  local c_i=""
+  local message="$1"
+
+  let echo_buffer_count=${#message}
+}
+
+echo_clear() {
+  if [[ $echo_buffer_count -gt 0 && $progress_printed -eq 1 ]] ; then
+    echo -ne "\r"
+    printf "%${echo_buffer_count}s" " "
+  fi
+
+  let echo_buffer_count=0
 }
 
 main $*
@@ -568,6 +680,7 @@ unset main
 unset print_help
 unset process_content
 unset process_documents
+unset count_documents
 unset rename_documents_to_checksum
 unset rename_checksums_to_document
 unset rebuild_contents_file
@@ -576,6 +689,9 @@ unset log_warn
 unset log_out
 unset echo_out
 unset echo_out_e
+unset echo_progress
 unset echo_error
 unset echo_warn
 unset echo_pad
+unset echo_count
+unset echo_clear
