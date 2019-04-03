@@ -195,10 +195,16 @@ print_help() {
 
 process_content() {
   local set=
-  local sets=$(find $source_directory -type f -name $contents_file)
+  local sets=
   local file_path=
   local -i document_current=1
   local -i document_total=0
+
+  echo_out2
+  echo_out_e2 "${c_t}Analyzing Directory:$c_r $c_n$source_directory$c_r"
+  echo_out2
+
+  sets=$(find $source_directory -type f -name $contents_file)
 
   if [[ $sets == "" ]] ; then
     echo_out
@@ -580,10 +586,26 @@ echo_out() {
   fi
 }
 
+echo_out2() {
+  local message=$1
+
+  if [[ $output_mode -eq 0 || $output_mode -eq 2 ]] ; then
+    echo "$message"
+  fi
+}
+
 echo_out_e() {
   local message=$1
 
   if [[ $output_mode -eq 0 ]] ; then
+    echo -e "$message"
+  fi
+}
+
+echo_out_e2() {
+  local message=$1
+
+  if [[ $output_mode -eq 0 || $output_mode -eq 2 ]] ; then
     echo -e "$message"
   fi
 }
@@ -689,6 +711,8 @@ unset log_warn
 unset log_out
 unset echo_out
 unset echo_out_e
+unset echo_out2
+unset echo_out_e2
 unset echo_progress
 unset echo_error
 unset echo_warn
