@@ -187,7 +187,7 @@ print_help() {
   echo_out_e " -${c_i}p${c_r}, --${c_i}preserve${c_r}   Preserve the original file names instead of renaming."
   echo_out_e " -${c_i}r${c_r}, --${c_i}rename_to${c_r}  Specify a custom rename to filename prefix (currently: '$c_n$document_name_prefix$c_r')."
   echo_out_e " -${c_i}s${c_r}, --${c_i}silent${c_r}     Do not print to the screen."
-  echo_out_e " -${c_i}P${c_r}, --${c_i}progress${c_r}   Display progress instead of normal output (partially implies -s)."
+  echo_out_e " -${c_i}P${c_r}, --${c_i}progress${c_r}   Display progress instead of normal output."
   echo_out
   echo_out_e "When --${c_i}preserve${c_r} is used, --${c_i}rename_to${c_r} is ignored."
   echo_out
