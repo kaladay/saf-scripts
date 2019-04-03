@@ -27,6 +27,7 @@ main(){
   local contents_file="contents"
   local bundle_name="$(echo -e "\tbundle:ORIGINAL")"
   local -i preserve=0
+  local -i silent=0
   local grab_next=
 
   if [[ $(type -p date) ]] ; then
@@ -66,6 +67,8 @@ main(){
           let preserve=1
         elif [[ $parameter == "-r" || $parameter == "--rename_to" ]] ; then
           grab_next="$parameter"
+        elif [[ $parameter == "-s" || $parameter == "--silent" ]] ; then
+          let silent=1
         elif [[ $source_directory == "" ]] ; then
           source_directory="$parameter"
         else
@@ -90,18 +93,18 @@ main(){
   fi
 
   if [[ $grab_next != "" ]] ; then
-    echo
+    echo_out
     echo_error "missing parameter for '$c_n$grab_next$c_e'"
-    echo
+    echo_out
     return
   elif [[ $(echo "$checksum_command" | grep -o "^[[:space:]]*-") != "" || $(type -p "$checksum_command") == "" ]] ; then
-    echo
+    echo_out
     echo_error "invalid checksum program '$c_n$checksum_command$c_e'"
-    echo
+    echo_out
     return
   elif [[ $extra_parameters_total -gt 0 ]] ; then
     let i=0
-    echo
+    echo_out
     local custom_message="only one source directory may be specified at a time, you specified '$c_n$source_directory$c_e'"
     while [[ $i -lt $extra_parameters_total ]] ; do
       parameter=${extra_parameters[i]}
@@ -109,40 +112,45 @@ main(){
       let i++
     done
     echo_error "$custom_message."
-    echo
+    echo_out
 
     return
   fi
 
   if [[ $get_help -eq 1 || $i -eq 0 ]] ; then
+    if [[ $silent -eq 1 ]] ; then
+      let silent=0
+      echo_warn "Output is not suppressed when help is to be displayed."
+    fi
+
     print_help
   else
     if [[ ! -r $source_directory ]] ; then
-      echo
+      echo_out
       echo_error "The source directory '$c_n$source_directory$c_e' not found or not readable."
-      echo
+      echo_out
       return
     fi
 
     if [[ ! -d $source_directory ]] ; then
-      echo
+      echo_out
       echo_error "The source directory '$c_n$source_directory$c_e' not a valid directory."
-      echo
+      echo_out
       return
     fi
 
     if [[ ! -x $source_directory ]] ; then
-      echo
+      echo_out
       echo_error "The source directory '$c_n$source_directory$c_e' not executable."
-      echo
+      echo_out
       return
     fi
 
     touch -f $change_log
     if [[ $? -ne 0 ]] ; then
-      echo
+      echo_out
       echo_error "Unable to write to log file '$c_n$change_log$c_e'."
-      echo
+      echo_out
       return
     fi
 
@@ -151,24 +159,25 @@ main(){
 }
 
 print_help() {
-  echo
-  echo -e "${c_t}DSpace SAF Import De-Duplicator$c_r"
-  echo
-  echo -e "Given a ${c_n}source directory${c_r}, this remove duplicates and rename all files specified by '$c_n$contents_file$c_r' files found within the source directory."
-  echo
-  echo -e "${c_h}Usage:$c_r"
-  echo -e "  $c_i$script_pathname$c_r ${c_n}[${c_r}options${c_n}]${c_r} ${c_n}<${c_r}source directory${c_n}>${c_r}"
-  echo
-  echo -e "${c_h}Options:$c_r"
-  echo -e " -${c_i}c${c_r}, --${c_i}checksum${c_r}   Specify a custom checksum utility (currently: '$c_n$checksum_command$c_r')."
-  echo -e " -${c_i}h${c_r}, --${c_i}help${c_r}       Print this help screen."
-  echo -e " -${c_i}l${c_r}, --${c_i}log_file${c_r}   Specify a custom log file name (currently: '$c_n$change_log$c_r')."
-  echo -e " -${c_i}n${c_r}, --${c_i}no_color${c_r}   Do not apply color changes when printing output to screen."
-  echo -e " -${c_i}p${c_r}, --${c_i}preserve${c_r}   Preserve the original file names instead of renaming."
-  echo -e " -${c_i}r${c_r}, --${c_i}rename_to${c_r}  Specify a custom rename to filename prefix (currently: '$c_n$document_name_prefix$c_r')."
-  echo
-  echo -e "When --${c_i}preserve${c_r} is used, --${c_i}rename_to${c_r} is ignored."
-  echo
+  echo_out
+  echo_out_e "${c_t}DSpace SAF Import De-Duplicator$c_r"
+  echo_out
+  echo_out_e "Given a ${c_n}source directory${c_r}, this remove duplicates and rename all files specified by '$c_n$contents_file$c_r' files found within the source directory."
+  echo_out
+  echo_out_e "${c_h}Usage:$c_r"
+  echo_out_e "  $c_i$script_pathname$c_r ${c_n}[${c_r}options${c_n}]${c_r} ${c_n}<${c_r}source directory${c_n}>${c_r}"
+  echo_out
+  echo_out_e "${c_h}Options:$c_r"
+  echo_out_e " -${c_i}c${c_r}, --${c_i}checksum${c_r}   Specify a custom checksum utility (currently: '$c_n$checksum_command$c_r')."
+  echo_out_e " -${c_i}h${c_r}, --${c_i}help${c_r}       Print this help screen."
+  echo_out_e " -${c_i}l${c_r}, --${c_i}log_file${c_r}   Specify a custom log file name (currently: '$c_n$change_log$c_r')."
+  echo_out_e " -${c_i}n${c_r}, --${c_i}no_color${c_r}   Do not apply color changes when printing output to screen."
+  echo_out_e " -${c_i}p${c_r}, --${c_i}preserve${c_r}   Preserve the original file names instead of renaming."
+  echo_out_e " -${c_i}r${c_r}, --${c_i}rename_to${c_r}  Specify a custom rename to filename prefix (currently: '$c_n$document_name_prefix$c_r')."
+  echo_out_e " -${c_i}s${c_r}, --${c_i}silent${c_r}     Do not print to the screen."
+  echo_out
+  echo_out_e "When --${c_i}preserve${c_r} is used, --${c_i}rename_to${c_r} is ignored."
+  echo_out
 }
 
 process_content() {
@@ -177,15 +186,15 @@ process_content() {
   local file_path=
 
   if [[ $files == "" ]] ; then
-    echo
+    echo_out
     echo_error "Did not find any files named '$c_n$contents_file$c_e' inside of the directory '$c_n$source_directory$c_e'."
-    echo
+    echo_out
     return
   fi
 
   for file in $files ; do
-    echo
-    echo -e "${c_t}Now Proccessing Set:$c_r $c_n$file$c_r"
+    echo_out
+    echo_out_e "${c_t}Now Proccessing Set:$c_r $c_n$file$c_r"
 
     log_out
     log_out "===== Begin Set: '$file' ====="
@@ -193,13 +202,13 @@ process_content() {
     file_path=$(dirname $file)
 
     if [[ $file_path == "" ]] ; then
-      echo
+      echo_out
       echo_warn "Failed to process directory path for '$c_n$file$c_w', skipping set." 2
       continue
     fi
 
     if [[ ! -w $file_path ]] ; then
-      echo
+      echo_out
       echo_warn "The directory path '$c_n$file_path$c_w' is not writable, skipping set." 2
       continue
     fi
@@ -208,7 +217,7 @@ process_content() {
 
     process_documents
 
-    echo -e "  ${c_n}Done$c_r"
+    echo_out_e "  ${c_n}Done$c_r"
   done
 }
 
@@ -225,52 +234,52 @@ process_documents() {
   unset checksums_all[0]
 
   if [[ $documents == "" ]] ; then
-    echo
+    echo_out
     echo_warn "No documents described in '$c_n$file$c_w', skipping set." 2
-    echo
+    echo_out
     log_warn "No documents found in '$file', skipping set."
     return
   fi
 
   for document in $documents ; do
     if [[ ! -r $file_path$document ]] ; then
-      echo
+      echo_out
       echo_error "Document '$c_n$file_path$document$c_e' not found or not readable, skipping set." 2
-      echo
+      echo_out
       log_error "Not found or readable document '$file_path$document', skipping set."
       return
     fi
 
     if [[ ! -w $file_path$document ]] ; then
-      echo
+      echo_out
       echo_error "Document '$c_n$file_path$document$c_e' not writable, skipping set." 2
-      echo
+      echo_out
       log_error "Not writable document '$file_path$document', skipping set."
       return
     fi
 
-    echo -e "  Generating checksum for '$c_h$file_path$document$c_r'."
+    echo_out_e "  Generating checksum for '$c_h$file_path$document$c_r'."
     checksum=$($checksum_command $file_path$document)
 
     if [[ $? -ne 0 ]] ; then
-      echo
+      echo_out
       echo_error "Checksum generation for '$c_n$file_path$document$c_e' failed, skipping set." 2
-      echo
+      echo_out
       log_error "Checksums generation failed for document '$file_path$document', skipping set."
       return
     fi
 
     checksum=$(echo $checksum | sed -e 's|[[:space:]][[:space:]]*[^[:space:]].*$||')
     if [[ $checksum == "" ]] ; then
-      echo
+      echo_out
       echo_error "Failed to process checksum results for '$c_n$file_path$document$c_e', skipping set." 2
-      echo
+      echo_out
       log_error "Process checksum failed for document '$file_path$document', skipping set."
       return
     fi
 
     if [[ ${checksums[$checksum]} == "" ]] ; then
-      echo -e "    Checksum: (new)       '$c_i$checksum$c_r'."
+      echo_out_e "    Checksum: (new)       '$c_i$checksum$c_r'."
       log_out "New checksum found '$checksum', document '$file_path$document'."
       checksums[$checksum]="$document";
 
@@ -278,13 +287,13 @@ process_documents() {
       # to attempt to preserve document order, store the index id based on the total checksums in the set.
       checksums_order[$checksum]=${#checksums[*]};
     else
-      echo -e "    Checksum: (duplicate) '$c_i$checksum$c_r'."
+      echo_out_e "    Checksum: (duplicate) '$c_i$checksum$c_r'."
       log_out "Duplicate checksum found '$checksum', document '$file_path$document'."
     fi
 
     checksums_all[$document]="$checksum"
 
-    echo
+    echo_out
   done
 
   rename_documents_to_checksum
@@ -320,9 +329,9 @@ rename_documents_to_checksum() {
     mv $file_path$file_name_old $file_path$file_name_new
 
     if [[ $? -ne 0 ]] ; then
-      echo
+      echo_out
       echo_error "Something went wrong while moving '$c_n$file_path$file_name_old$c_e' to '$c_n$file_path$file_name_new$c_e'." 6
-      echo
+      echo_out
       log_error "Failed to move '$file_path$file_name_old' to '$file_path$file_name_new'."
       break
     else
@@ -332,9 +341,9 @@ rename_documents_to_checksum() {
 
   for file_name_old in ${!checksums_all[*]} ; do
     if [[ -e $file_path$file_name_old ]] ; then
-      echo
+      echo_out
       echo_error "File '$c_n$file_path$file_name_old$c_e' not renamed, resetting changes to entire set." 4
-      echo
+      echo_out
       log_error "File not renamed '$file_path$file_name_old', resetting changes to entire set."
       let failure=1
       break
@@ -370,9 +379,9 @@ rename_documents_to_checksum() {
           rm $file_path$file_to_delete
 
           if [[ $? -ne 0 ]] ; then
-            echo
+            echo_out
             echo_warn "Something went wrong while deleting '$c_n$file_path$file_to_delete$c_w'." 6
-            echo
+            echo_out
             log_warn "Attempted but failed to delete '$file_path$file_to_delete'."
           else
             log_out "Deleted '$file_path$file_to_delete'."
@@ -415,9 +424,9 @@ rename_checksums_to_document() {
     mv $file_path$file_name_checksum $file_path$file_name_desired
 
     if [[ $? -ne 0 ]] ; then
-      echo
+      echo_out
       echo_error "Something went wrong while moving '$c_n$file_path$file_name_checksum$c_e' to '$c_n$file_path$file_name_desired$c_e'." 6
-      echo
+      echo_out
       log_error "Attempted but failed to move '$file_path$file_name_checksum' to '$file_path$file_name_desired'."
       return 1
     else
@@ -440,9 +449,9 @@ rebuild_contents_file() {
     rm $file_path$contents_file
 
     if [[ $? -ne 0 ]] ; then
-      echo
+      echo_out
       echo_warn "Something went wrong while deleting '$c_n$file_path$contents_file$c_w'." 6
-      echo
+      echo_out
       log_warn "Failed to delete unnecessary '$file_path$contents_file'."
       let failure=1
     else
@@ -455,9 +464,9 @@ rebuild_contents_file() {
   echo -n > $file_path$contents_file
 
   if [[ $? -ne 0 ]] ; then
-    echo
+    echo_out
     echo_error "Something went wrong while clearing '$c_n$file_path$contents_file$c_e'." 6
-    echo
+    echo_out
     log_error "Failed to clear '$file_path$contents_file'."
     return 1
   else
@@ -480,9 +489,9 @@ rebuild_contents_file() {
     echo >> $file_path$contents_file
 
     if [[ $? -ne 0 ]] ; then
-      echo
+      echo_out
       echo_error "Something went wrong while appending '$c_n$document_line$c_e' to '$c_n$file_path$contents_file$c_e'." 6
-      echo
+      echo_out
       log_error "Failed to append '$document_line' to '$file_path$contents_file'."
       let failure=1
     else
@@ -494,9 +503,9 @@ rebuild_contents_file() {
   sed -i -e '$d' $file_path$contents_file
 
   if [[ $? -ne 0 ]] ; then
-    echo
+    echo_out
     echo_warn "Something went wrong while remove last line from '$c_n$file_path$contents_file$c_w'." 6
-    echo
+    echo_out
     log_warn "Failed to remove last line from '$file_path$contents_file'."
     let failure=1
   fi
@@ -519,24 +528,36 @@ log_out() {
   echo "$message" >> $change_log
 }
 
+echo_out() {
+  if [[ $silent -eq 0 ]] ; then
+    echo "$*"
+  fi
+}
+
+echo_out_e() {
+  if [[ $silent -eq 0 ]] ; then
+    echo -e "$*"
+  fi
+}
+
 echo_error() {
   local message=$1
 
   echo_pad $2
-  echo -e "${c_e}ERROR: $message$c_r"
+  echo_out_e "${c_e}ERROR: $message$c_r"
 }
 
 echo_warn() {
   local message=$1
 
   echo_pad $2
-  echo -e "${c_w}WARNING: $message$c_r"
+  echo_out_e "${c_w}WARNING: $message$c_r"
 }
 
 echo_pad() {
   local -i padding=$1
 
-  if [[ $padding -gt 0 ]] ; then
+  if [[ $silent -eq 0 && $padding -gt 0 ]] ; then
     printf "%${padding}s" " "
   fi
 }
@@ -553,6 +574,8 @@ unset rebuild_contents_file
 unset log_error
 unset log_warn
 unset log_out
+unset echo_out
+unset echo_out_e
 unset echo_error
 unset echo_warn
 unset echo_pad
