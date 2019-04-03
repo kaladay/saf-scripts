@@ -248,7 +248,7 @@ process_content() {
 
 process_documents() {
   local document=
-  local documents=$(grep -o '^document-[[:digit:]]*\.pdf\>' $set)
+  local documents=$(sed -e 's|bundle:ORIGINAL| |g' $set)
   local checksum=
   local -A checksums=
   local -A checksums_order=
