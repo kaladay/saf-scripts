@@ -247,7 +247,7 @@ process_documents() {
       echo_error "Document '$c_n$file_path$document$c_e' not found or not readable, skipping set." 2
       echo_out
       log_error "Not found or readable document '$file_path$document', skipping set."
-      return
+      continue
     fi
 
     if [[ ! -w $file_path$document ]] ; then
@@ -255,7 +255,7 @@ process_documents() {
       echo_error "Document '$c_n$file_path$document$c_e' not writable, skipping set." 2
       echo_out
       log_error "Not writable document '$file_path$document', skipping set."
-      return
+      continue
     fi
 
     echo_out_e "  Generating checksum for '$c_h$file_path$document$c_r'."
@@ -266,7 +266,7 @@ process_documents() {
       echo_error "Checksum generation for '$c_n$file_path$document$c_e' failed, skipping set." 2
       echo_out
       log_error "Checksums generation failed for document '$file_path$document', skipping set."
-      return
+      continue
     fi
 
     checksum=$(echo $checksum | sed -e 's|[[:space:]][[:space:]]*[^[:space:]].*$||')
@@ -275,7 +275,7 @@ process_documents() {
       echo_error "Failed to process checksum results for '$c_n$file_path$document$c_e', skipping set." 2
       echo_out
       log_error "Process checksum failed for document '$file_path$document', skipping set."
-      return
+      continue
     fi
 
     if [[ ${checksums[$checksum]} == "" ]] ; then
