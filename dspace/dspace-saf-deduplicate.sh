@@ -8,8 +8,15 @@
 #
 # When "--preserve" is not used, all files will be renamed to something like 'document-1.pdf' (original extension will be preserved).
 #
+# Some systems still use very old versions of the software (such as bash 3
+#
+# This expects a bash of at least version 4, but provides some limited work-arounds for known problems with bash version 3.
+#
+# This provides custom support for the "md5" program as opposed to "md5sum" that is typically found on OS-X systems.
+# The "md5" program has a different output structure and must be parsed differently.
+#
 # depends on the following userspace commands:
-#   dirname, file, grep, sed, md5sum (or compatible, like shasum), touch
+#   dirname, basename, file, grep, sed, md5sum (or compatible, like shasum) (special support for 'md5' also exists), touch
 
 main(){
   local script_pathname=$0
@@ -31,6 +38,8 @@ main(){
   local grab_next=
   local -i progress_printed=0
   local -i echo_buffer_count=0
+  local -i alternative_checksum=0
+  local -i legacy=0
 
   if [[ $(type -p date) ]] ; then
     change_log="changes-$(date +'%Y_%m_%d').log"
@@ -55,6 +64,10 @@ main(){
           grab_next="$parameter"
         elif [[ $parameter == "-h" || $parameter == "--help" ]] ; then
           let get_help=1
+        elif [[ $parameter == "-f" || $parameter == "--file" ]] ; then
+          grab_next="$parameter"
+        elif [[ $parameter == "--legacy" ]] ; then
+          let legacy=1
         elif [[ $parameter == "-l" || $parameter == "--log_file" ]] ; then
           grab_next="$parameter"
         elif [[ $parameter == "-n" || $parameter == "--no_color" ]] ; then
@@ -82,17 +95,20 @@ main(){
             let output_mode=3
           fi
         elif [[ $source_directory == "" ]] ; then
-          source_directory="$parameter"
+          source_directory=$(echo $parameter | sed -e 's|//*|/|g' -e 's|/*$|/|')
         else
           extra_parameters[${extra_parameters_total}]=$parameter
           let extra_parameters_total++
         fi
       else
         if [[ $grab_next == "-c" || $grab_next == "--checksum" ]] ; then
-          checksum_command="$parameter"
+          checksum_command=$(echo "$parameter" | sed -e 's|^[[:space:]]*||' -e 's|[[:space:]]*$||')
+          grab_next=
+        elif [[ $grab_next == "-f" || $grab_next == "--file" ]] ; then
+          contents_file=$(echo "$parameter" | sed -e 's|^[[:space:]]*||' -e 's|[[:space:]]*$||')
           grab_next=
         elif [[ $grab_next == "-l" || $grab_next == "--log_file" ]] ; then
-          change_log="$parameter"
+          change_log=$(echo $parameter | sed -e 's|//*|/|g')
           grab_next=
         elif [[ $grab_next == "-r" || $grab_next == "--rename_to" ]] ; then
           document_name_prefix="$parameter"
@@ -104,19 +120,40 @@ main(){
     done
   fi
 
+  # if using alternative "md5" program, change the checksum processing method because 'md5' has a different output structure than say 'md5sum'.
+  if [[ $checksum_command == "md5" ]] ; then
+    let alternative_checksum=1
+  fi
+
+  if [[ $get_help -eq 1 || $i -eq 0 ]] ; then
+    if [[ $output_mode -ne 0 && $output_mode -ne 3 ]] ; then
+      let output_mode=0
+      echo
+      echo_warn "Output is not suppressed when help is to be displayed."
+    fi
+
+    print_help
+    return 0
+  fi
+
   if [[ $grab_next != "" ]] ; then
-    echo_out
+    echo_out2
     echo_error "missing parameter for '$c_n$grab_next$c_e'"
-    echo_out
-    return
-  elif [[ $(echo "$checksum_command" | grep -o "^[[:space:]]*-") != "" || $(type -p "$checksum_command") == "" ]] ; then
-    echo_out
+    echo_out2
+    return 1
+  elif [[ "$checksum_command" == "" || $(type -p "$checksum_command") == "" ]] ; then
+    echo_out2
     echo_error "invalid checksum program '$c_n$checksum_command$c_e'"
-    echo_out
-    return
+    echo_out2
+    return 1
+  elif [[ "$contents_file" == "" || $(basename $contents_file) != "$contents_file" ]] ; then
+    echo_out2
+    echo_error "invalid contents_file specified '$c_n$contents_file$c_e'"
+    echo_out2
+    return 1
   elif [[ $extra_parameters_total -gt 0 ]] ; then
     let i=0
-    echo_out
+    echo_out2
     local custom_message="only one source directory may be specified at a time, you specified '$c_n$source_directory$c_e'"
     while [[ $i -lt $extra_parameters_total ]] ; do
       parameter=${extra_parameters[i]}
@@ -124,64 +161,67 @@ main(){
       let i++
     done
     echo_error "$custom_message."
-    echo_out
+    echo_out2
 
-    return
+    return 1
   fi
 
-  if [[ $get_help -eq 1 || $i -eq 0 ]] ; then
-    if [[ $output_mode -ne 0 || $output_mode -ne 3 ]] ; then
-      let output_mode=0
-      echo_warn "Output is not suppressed when help is to be displayed."
-    fi
-
-    print_help
-  else
-    if [[ ! -r $source_directory ]] ; then
-      echo_out
-      echo_error "The source directory '$c_n$source_directory$c_e' not found or not readable."
-      echo_out
-      return
-    fi
-
-    if [[ ! -d $source_directory ]] ; then
-      echo_out
-      echo_error "The source directory '$c_n$source_directory$c_e' not a valid directory."
-      echo_out
-      return
-    fi
-
-    if [[ ! -x $source_directory ]] ; then
-      echo_out
-      echo_error "The source directory '$c_n$source_directory$c_e' not executable."
-      echo_out
-      return
-    fi
-
-    touch -f $change_log
-    if [[ $? -ne 0 ]] ; then
-      echo_out
-      echo_error "Unable to write to log file '$c_n$change_log$c_e'."
-      echo_out
-      return
-    fi
-
-    process_content
+  if [[ ! -r $source_directory ]] ; then
+    echo_out2
+    echo_error "The source directory '$c_n$source_directory$c_e' not found or not readable."
+    echo_out2
+    return 1
   fi
+
+  if [[ ! -d $source_directory ]] ; then
+    echo_out2
+    echo_error "The source directory '$c_n$source_directory$c_e' not a valid directory."
+    echo_out2
+    return 1
+  fi
+
+  if [[ ! -x $source_directory ]] ; then
+    echo_out2
+    echo_error "The source directory '$c_n$source_directory$c_e' not executable."
+    echo_out2
+    return 1
+  fi
+
+  if [[ -d $change_log ]] ; then
+    echo_out2
+    echo_error "The log file cannot be a directory '$c_n$change_log$c_e'."
+    echo_out2
+    return 1
+  fi
+
+  touch -f $change_log
+  if [[ $? -ne 0 ]] ; then
+    echo_out2
+    echo_error "Unable to write to log file '$c_n$change_log$c_e'."
+    echo_out2
+    return 1
+  fi
+
+  process_content
+  return $?
 }
 
 print_help() {
   echo_out
   echo_out_e "${c_t}DSpace SAF Import De-Duplicator$c_r"
   echo_out
-  echo_out_e "Given a ${c_n}source directory${c_r}, this remove duplicates and rename all files specified by '$c_n$contents_file$c_r' files found within the source directory."
+  echo_out_e "Given a ${c_n}source directory${c_r}, this removes duplicates and renames all files specified by '$c_n$contents_file$c_r' files found within the source directory."
+  echo_out
+  echo_out_e "The specified source directories will be recursively search the given source directories, operating on any directories containg a 'contents' file."
   echo_out
   echo_out_e "${c_h}Usage:$c_r"
   echo_out_e "  $c_i$script_pathname$c_r ${c_n}[${c_r}options${c_n}]${c_r} ${c_n}<${c_r}source directory${c_n}>${c_r}"
   echo_out
   echo_out_e "${c_h}Options:$c_r"
   echo_out_e " -${c_i}c${c_r}, --${c_i}checksum${c_r}   Specify a custom checksum utility (currently: '$c_n$checksum_command$c_r')."
+  echo_out_e " -${c_i}f${c_r}, --${c_i}file${c_r}       Specify a custom 'contents' file (currently: '$c_n$contents_file$c_r')."
   echo_out_e " -${c_i}h${c_r}, --${c_i}help${c_r}       Print this help screen."
+  echo_out_e "     --${c_i}legacy${c_r}     Enable compatibility mode with legacy software versions, such as Bash 3.x."
   echo_out_e " -${c_i}l${c_r}, --${c_i}log_file${c_r}   Specify a custom log file name (currently: '$c_n$change_log$c_r')."
   echo_out_e " -${c_i}n${c_r}, --${c_i}no_color${c_r}   Do not apply color changes when printing output to screen."
   echo_out_e " -${c_i}p${c_r}, --${c_i}preserve${c_r}   Preserve the original file names instead of renaming."
@@ -190,6 +230,9 @@ print_help() {
   echo_out_e " -${c_i}P${c_r}, --${c_i}progress${c_r}   Display progress instead of normal output."
   echo_out
   echo_out_e "When --${c_i}preserve${c_r} is used, --${c_i}rename_to${c_r} is ignored."
+  echo_out
+  echo_out_e "Warning: ${c_i}legacy${c_r} mode is not guaranteed to work as it only has workarounds for known issues."
+  echo_out_e "Warning: You may have to set both ${c_i}--legacy${c_r} and ${c_i}--checksum md5${c_r} if using you are using OS-X."
   echo_out
 }
 
@@ -207,10 +250,10 @@ process_content() {
   sets=$(find $source_directory -type f -name $contents_file)
 
   if [[ $sets == "" ]] ; then
-    echo_out
+    echo_out2
     echo_error "Did not find any files named '$c_n$contents_file$c_e' inside of the directory '$c_n$source_directory$c_e'."
-    echo_out
-    return
+    echo_out2
+    return 1
   fi
 
   if [[ $output_mode -eq 2 || $output_mode -eq 3 ]] ; then
@@ -227,13 +270,13 @@ process_content() {
     file_path=$(dirname $set)
 
     if [[ $file_path == "" ]] ; then
-      echo_out
+      echo_out2
       echo_warn "Failed to process directory path for '$c_n$set$c_w', skipping set." 2
       continue
     fi
 
     if [[ ! -w $file_path ]] ; then
-      echo_out
+      echo_out2
       echo_warn "The directory path '$c_n$file_path$c_w' is not writable, skipping set." 2
       continue
     fi
@@ -248,7 +291,7 @@ process_content() {
   if [[ $output_mode -eq 2 || $output_mode -eq 3 ]] ; then
     let document_current--
     echo_progress "${c_t}Finished Processing:$c_r $c_i$document_current$c_r of $c_i$document_total$c_r documents."
-    echo
+    echo_out3
   fi
 }
 
@@ -256,18 +299,37 @@ process_documents() {
   local document=
   local documents=$(sed -e 's|bundle:ORIGINAL| |g' $set)
   local checksum=
-  local -A checksums=
-  local -A checksums_order=
-  local -A checksums_all=
+  local index=
+
+  if [[ $legacy -eq 1 ]] ; then
+    local -a checksums=
+    local -a checksums_order=
+    local -a checksums_all=
+
+    # for compatibility with systems whose bash does no support associative arrays (-A).
+    # "checksums_index" is used to store the checksum for "checksums".
+    # "documents_all" is used to fetch the index for document names for "checksums_all" index array.
+    local -a checksums_index=
+    local -a documents_all=
+
+    # remove auto-added index of 0.
+    unset checksums_index[0]
+    unset documents_all[0]
+  else
+    local -A checksums=
+    local -A checksums_order=
+    local -A checksums_all=
+  fi
 
   # remove auto-added index of 0.
   unset checksums[0]
+  unset checksums_order[0]
   unset checksums_all[0]
 
   if [[ $documents == "" ]] ; then
-    echo_out
+    echo_out2
     echo_warn "No documents described in '$c_n$set$c_w', skipping set." 2
-    echo_out
+    echo_out2
     log_warn "No documents found in '$set', skipping set."
     return
   fi
@@ -276,18 +338,18 @@ process_documents() {
     echo_progress "${c_t}Processing:$c_r $document_current of $document_total, set: '$c_i$set$c_r', document name: '$c_i$document$c_r'."
 
     if [[ ! -r $file_path$document ]] ; then
-      echo_out
+      echo_out2
       echo_error "Document '$c_n$file_path$document$c_e' not found or not readable, skipping set." 2
-      echo_out
+      echo_out2
       log_error "Not found or readable document '$file_path$document', skipping set."
       let document_current++
       continue
     fi
 
     if [[ ! -w $file_path$document ]] ; then
-      echo_out
+      echo_out2
       echo_error "Document '$c_n$file_path$document$c_e' not writable, skipping set." 2
-      echo_out
+      echo_out2
       log_error "Not writable document '$file_path$document', skipping set."
       let document_current++
       continue
@@ -297,38 +359,56 @@ process_documents() {
     checksum=$($checksum_command $file_path$document)
 
     if [[ $? -ne 0 ]] ; then
-      echo_out
+      echo_out2
       echo_error "Checksum generation for '$c_n$file_path$document$c_e' failed, skipping set." 2
-      echo_out
+      echo_out2
       log_error "Checksums generation failed for document '$file_path$document', skipping set."
       let document_current++
       continue
     fi
 
-    checksum=$(echo $checksum | sed -e 's|[[:space:]][[:space:]]*[^[:space:]].*$||')
+    # parse the checksum command in such a way that special-case checksum output formats can be handled, namely 'md5'.
+    parse_checksum
+
     if [[ $checksum == "" ]] ; then
-      echo_out
+      echo_out2
       echo_error "Failed to process checksum results for '$c_n$file_path$document$c_e', skipping set." 2
-      echo_out
+      echo_out2
       log_error "Process checksum failed for document '$file_path$document', skipping set."
       let document_current++
       continue
     fi
 
-    if [[ ${checksums[$checksum]} == "" ]] ; then
+    # populate $index variable from $checksum variable in such a way that legacy bash versions, namely bash 3, can work.
+    find_checksum_index
+
+    if [[ $index == "" ]] ; then
+      create_checksum_index_if_new
+
       echo_out_e "    Checksum: (new)       '$c_i$checksum$c_r'."
       log_out "New checksum found '$checksum', document '$file_path$document'."
-      checksums[$checksum]="$document";
+      checksums["$index"]="$document";
 
       # array order is not guaranteed.
       # to attempt to preserve document order, store the index id based on the total checksums in the set.
-      checksums_order[$checksum]=${#checksums[*]};
+      checksums_order["$index"]=${#checksums[*]};
+      if [[ $legacy -eq 1 ]] ; then
+        checksums_index["$index"]="$checksum"
+      fi
     else
       echo_out_e "    Checksum: (duplicate) '$c_i$checksum$c_r'."
       log_out "Duplicate checksum found '$checksum', document '$file_path$document'."
     fi
 
-    checksums_all[$document]="$checksum"
+    # populate $index variable from $document variable in such a way that legacy bash versions, namely bash 3, can work.
+    find_document_index
+    create_document_index_if_new
+
+    checksums_all["$index"]="$checksum"
+
+    if [[ $legacy -eq 1 ]] ; then
+      documents_all["$index"]="$document"
+    fi
 
     echo_out
     let document_current++
@@ -365,23 +445,31 @@ rename_documents_to_checksum() {
   local extension=
   local checksum=
   local -i failure=0
+  local index=
 
   if [[ $total -eq 0 ]] ; then
     return 0
   fi
 
   # renaming files to their checksum name will effectively result in duplicate files being removed.
-  for file_name_old in ${!checksums_all[*]} ; do
-    checksum=${checksums_all[$file_name_old]}
+  for index in ${!checksums_all[@]} ; do
+    if [[ $legacy -eq 1 ]] ; then
+      file_name_old=${documents_all[$index]}
+      checksum=${checksums_all[$index]}
+    else
+      file_name_old="$index"
+      checksum=${checksums_all[$file_name_old]}
+    fi
+
     extension=$(echo $file_name_old | grep -o '\.[^.]*$')
     file_name_new=$checksum$extension
 
-    mv $file_path$file_name_old $file_path$file_name_new
+    mv -v $file_path$file_name_old $file_path$file_name_new
 
     if [[ $? -ne 0 ]] ; then
-      echo_out
+      echo_out2
       echo_error "Something went wrong while moving '$c_n$file_path$file_name_old$c_e' to '$c_n$file_path$file_name_new$c_e'." 6
-      echo_out
+      echo_out2
       log_error "Failed to move '$file_path$file_name_old' to '$file_path$file_name_new'."
       break
     else
@@ -389,11 +477,17 @@ rename_documents_to_checksum() {
     fi
   done
 
-  for file_name_old in ${!checksums_all[*]} ; do
+  for index in ${!checksums_all[*]} ; do
+    if [[ $legacy -eq 1 ]] ; then
+      file_name_old=${documents_all[$index]}
+    else
+      file_name_old="$index"
+    fi
+
     if [[ -e $file_path$file_name_old ]] ; then
-      echo_out
+      echo_out2
       echo_error "File '$c_n$file_path$file_name_old$c_e' not renamed, resetting changes to entire set." 4
-      echo_out
+      echo_out2
       log_error "File not renamed '$file_path$file_name_old', resetting changes to entire set."
       let failure=1
       break
@@ -405,8 +499,15 @@ rename_documents_to_checksum() {
     local files_to_delete=
     local -i revert_failure=0
 
-    for file_name_old in ${!checksums_all[*]} ; do
-      checksum=${checksums_all[$file_name_old]}
+    for index in ${!checksums_all[*]} ; do
+      if [[ $legacy -eq 1 ]] ; then
+        file_name_old=${documents_all[$index]}
+        checksum=${checksums_all[$index]}
+      else
+        file_name_old="$index"
+        checksum=${checksums_all[$file_name_old]}
+      fi
+
       extension=$(echo $file_name_old | grep -o '\.[^.]*$')
       file_name_new=$checksum$extension
 
@@ -459,24 +560,32 @@ rename_checksums_to_document() {
     return 0
   fi
 
-  for checksum in ${!checksums[*]} ; do
-    file_name_old=${checksums[$checksum]}
+  for index in ${!checksums[*]} ; do
+    if [[ $legacy -eq 1 ]] ; then
+      checksum=${checksums_index[$index]}
+      file_name_old=${checksums[$index]}
+      order=${checksums_order[$index]}
+    else
+      checksum="$index"
+      file_name_old=${checksums[$checksum]}
+      order=${checksums_order[$checksum]}
+    fi
+
     extension=$(echo $file_name_old | grep -o '\.[^.]*$')
     file_name_checksum=$checksum$extension
 
     if [[ $preserve -eq 0 ]] ; then
-      order=${checksums_order[$checksum]}
       file_name_desired=$document_name_prefix$order$extension
     else
       file_name_desired=$file_name_old
     fi
 
-    mv $file_path$file_name_checksum $file_path$file_name_desired
+    mv -v $file_path$file_name_checksum $file_path$file_name_desired
 
     if [[ $? -ne 0 ]] ; then
-      echo_out
+      echo_out2
       echo_error "Something went wrong while moving '$c_n$file_path$file_name_checksum$c_e' to '$c_n$file_path$file_name_desired$c_e'." 6
-      echo_out
+      echo_out2
       log_error "Attempted but failed to move '$file_path$file_name_checksum' to '$file_path$file_name_desired'."
       return 1
     else
@@ -514,9 +623,9 @@ rebuild_contents_file() {
   echo -n > $file_path$contents_file
 
   if [[ $? -ne 0 ]] ; then
-    echo_out
+    echo_out2
     echo_error "Something went wrong while clearing '$c_n$file_path$contents_file$c_e'." 6
-    echo_out
+    echo_out2
     log_error "Failed to clear '$file_path$contents_file'."
     return 1
   else
@@ -539,9 +648,9 @@ rebuild_contents_file() {
     echo >> $file_path$contents_file
 
     if [[ $? -ne 0 ]] ; then
-      echo_out
+      echo_out2
       echo_error "Something went wrong while appending '$c_n$document_line$c_e' to '$c_n$file_path$contents_file$c_e'." 6
-      echo_out
+      echo_out2
       log_error "Failed to append '$document_line' to '$file_path$contents_file'."
       let failure=1
     else
@@ -553,14 +662,102 @@ rebuild_contents_file() {
   sed -i -e '$d' $file_path$contents_file
 
   if [[ $? -ne 0 ]] ; then
-    echo_out
+    echo_out2
     echo_warn "Something went wrong while remove last line from '$c_n$file_path$contents_file$c_w'." 6
-    echo_out
+    echo_out2
     log_warn "Failed to remove last line from '$file_path$contents_file'."
     let failure=1
   fi
 
   return $failure
+}
+
+parse_checksum() {
+  if [[ alternative_checksum -eq 1 ]] ; then
+    checksum=$(echo $checksum | sed -e 's|^.* = ||')
+  else
+    checksum=$(echo $checksum | sed -e 's|[[:space:]][[:space:]]*[^[:space:]].*$||')
+  fi
+}
+
+find_checksum_index() {
+  index=
+  if [[ $legacy -eq 1 ]] ; then
+    local -i total=${#checksums_index[*]}
+    local -i current=0
+
+    if [[ $total == "" || $total -eq 0 ]] ; then
+      return
+    fi
+
+    while [[ $current -lt $total ]] ; do
+      if [[ ${checksums_index[$current]} == "$checksum" ]] ; then
+        let index=$current
+        break
+      fi
+
+      let current++
+    done
+  else
+    if [[ ${checksums[$checksum]} != "" ]] ; then
+      index="$checksum"
+    fi
+  fi
+}
+
+find_document_index() {
+  index=
+  if [[ $legacy -eq 1 ]] ; then
+    local -i total=${#documents_index[*]}
+    local -i current=0
+
+    if [[ $total == "" || $total -eq 0 ]] ; then
+      return
+    fi
+
+    while [[ $current -lt $total ]] ; do
+      if [[ ${documents_index[$current]} == "$document" ]] ; then
+        let index=$current
+        break
+      fi
+
+      let current++
+    done
+  else
+    if [[ ${checksums_all[$document]} != "" ]] ; then
+      index="$document"
+    fi
+  fi
+}
+
+# meant to be called after find_checksum_index() in which if the $checksum was not found then a new index needs to be created.
+create_checksum_index_if_new() {
+  if [[ $index == "" ]] ; then
+    # in legacy mode, append checksum if no index was found, then set the index.
+    if [[ $legacy -eq 1 ]] ; then
+      index=${#checksums_index[*]}
+
+      # index arrays must have each key initialized via an array append before the key can be directly accessed to be modified.
+      checksums_index+=("")
+    else
+      index="$checksum"
+    fi
+  fi
+}
+
+# meant to be called after find_document_index() in which if the $document was not found then a new index needs to be created.
+create_document_index_if_new() {
+  if [[ $index == "" ]] ; then
+    # in legacy mode, append document if no index was found, then set the index.
+    if [[ $legacy -eq 1 ]] ; then
+      index=${#documents_index[*]}
+
+      # index arrays must have each key initialized via an array append before the key can be directly accessed to be modified.
+      documents_index+=("")
+    else
+      index="$document"
+    fi
+  fi
 }
 
 log_error() {
@@ -590,6 +787,14 @@ echo_out2() {
   local message=$1
 
   if [[ $output_mode -eq 0 || $output_mode -eq 2 ]] ; then
+    echo "$message"
+  fi
+}
+
+echo_out3() {
+  local message=$1
+
+  if [[ $output_mode -eq 2 || $output_mode -eq 3 ]] ; then
     echo "$message"
   fi
 }
@@ -706,12 +911,19 @@ unset count_documents
 unset rename_documents_to_checksum
 unset rename_checksums_to_document
 unset rebuild_contents_file
+unset parse_checksum
+unset find_checksum_index
+unset find_document_index
+unset find_checksum_all_index
+unset create_checksum_index_if_new
+unset create_document_index_if_new
 unset log_error
 unset log_warn
 unset log_out
 unset echo_out
 unset echo_out_e
 unset echo_out2
+unset echo_out3
 unset echo_out_e2
 unset echo_progress
 unset echo_error
