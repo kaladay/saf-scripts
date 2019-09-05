@@ -15,8 +15,12 @@
 # This provides custom support for the "md5" program as opposed to "md5sum" that is typically found on OS-X systems.
 # The "md5" program has a different output structure and must be parsed differently.
 #
+# Set "sort_command" to an empty string to disable sorting.
+# Sorting, via the sort command, is used to ensure consistent processing order so that the logs of multiple different executions can be compared.
+# Sorting is set to "numeric" (sorts numeric is not a "numeric order" but a "numeric string order" such that '15' would come before '275', but '275' would come before '58'.
+#
 # depends on the following userspace commands:
-#   dirname, basename, file, grep, sed, md5sum (or compatible, like shasum) (special support for 'md5' also exists), touch
+#   dirname, basename, file, grep, sed, md5sum (or compatible, like shasum) (special support for 'md5' also exists), touch, and sort (optional)
 
 main(){
   local script_pathname=$0
@@ -32,6 +36,8 @@ main(){
   local change_log="changes.log"
   local document_name_prefix="document-"
   local contents_file="contents"
+  local find_command="find"
+  local sort_command="sort"
   local bundle_name="$(echo -e "\tbundle:ORIGINAL")"
   local -i preserve=0
   local -i output_mode=0
@@ -123,6 +129,11 @@ main(){
   # if using alternative "md5" program, change the checksum processing method because 'md5' has a different output structure than say 'md5sum'.
   if [[ $checksum_command == "md5" ]] ; then
     let alternative_checksum=1
+  fi
+
+  # if "sort" is not available, disable it.
+  if [[ $(type -p $sort_command) == "" ]] ; then
+    sort_command=
   fi
 
   if [[ $get_help -eq 1 || $i -eq 0 ]] ; then
@@ -247,7 +258,11 @@ process_content() {
   echo_out_e2 "${c_t}Analyzing Directory:$c_r $c_n$source_directory$c_r"
   echo_out2
 
-  sets=$(find $source_directory -type f -name $contents_file)
+  if [[ $sort_command != "" ]] ; then
+    sets=$($find_command $source_directory -type f -name $contents_file | $sort_command -n)
+  else
+    sets=$($find_command $source_directory -type f -name $contents_file)
+  fi
 
   if [[ $sets == "" ]] ; then
     echo_out2
