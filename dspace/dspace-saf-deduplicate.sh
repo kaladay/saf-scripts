@@ -20,32 +20,36 @@
 # Sorting is set to "numeric" (sorts numeric is not a "numeric order" but a "numeric string order" such that '15' would come before '275', but '275' would come before '58'.
 #
 # depends on the following userspace commands:
-#   dirname, basename, file, grep, sed, md5sum (or compatible, like shasum) (special support for 'md5' also exists), touch, and sort (optional)
+#   dirname, basename, date (optional), find, grep, sed, md5sum (or compatible, like shasum) (special support for 'md5' also exists), touch, and sort (optional).
 
-main(){
+main() {
   local script_pathname=$0
   local get_help=
   local no_color=
   local -i i=0
+  local grab_next=
   local parameter=
   local -i parameters_total=$#
-  local source_directory=
   local extra_parameters=
   local -i extra_parameters_total=0
-  local checksum_command="md5sum"
-  local change_log="changes.log"
-  local document_name_prefix="document-"
-  local contents_file="contents"
-  local find_command="find"
-  local sort_command="sort"
-  local bundle_name="$(echo -e "\tbundle:ORIGINAL")"
   local -i preserve=0
   local -i output_mode=0
-  local grab_next=
   local -i progress_printed=0
   local -i echo_buffer_count=0
   local -i alternative_checksum=0
   local -i legacy=0
+  local source_directory=
+
+  # parts
+  local change_log="changes.log"
+  local document_name_prefix="document-"
+  local contents_file="contents"
+  local bundle_name="$(echo -e "\tbundle:ORIGINAL")"
+
+  # commands
+  local checksum_command="md5sum"
+  local find_command="find"
+  local sort_command="sort"
 
   if [[ $(type -p date) ]] ; then
     change_log="changes-$(date +'%Y_%m_%d').log"
@@ -136,10 +140,59 @@ main(){
     sort_command=
   fi
 
+  if [[ $(type -p basename) == "" ]] ; then
+    echo_out2
+    echo_error "Failed to find required (basename) command '${c_n}basename$c_r'"
+    echo_out2
+    return 1
+  fi
+
+  if [[ $(type -p $checksum_command) == "" ]] ; then
+    echo_out2
+    echo_error "Failed to find required (checksum) command '$c_n$checksum_command$c_r'"
+    echo_out2
+    return 1
+  fi
+
+  if [[ $(type -p dirname) == "" ]] ; then
+    echo_out2
+    echo_error "Failed to find required (dirname) command '${c_n}dirname$c_r'"
+    echo_out2
+    return 1
+  fi
+
+  if [[ $(type -p $find_command) == "" ]] ; then
+    echo_out2
+    echo_error "Failed to find required (find) command '$c_n$find_command$c_r'"
+    echo_out2
+    return 1
+  fi
+
+  if [[ $(type -p grep) == "" ]] ; then
+    echo_out2
+    echo_error "Failed to find required (grep) command '${c_n}grep$c_r'"
+    echo_out2
+    return 1
+  fi
+
+  if [[ $(type -p sed) == "" ]] ; then
+    echo_out2
+    echo_error "Failed to find required (sed) command '${c_n}sed$c_r'"
+    echo_out2
+    return 1
+  fi
+
+  if [[ $(type -p touch) == "" ]] ; then
+    echo_out2
+    echo_error "Failed to find required (touch) command '${c_n}touch$c_r'"
+    echo_out2
+    return 1
+  fi
+
   if [[ $get_help -eq 1 || $i -eq 0 ]] ; then
     if [[ $output_mode -ne 0 && $output_mode -ne 3 ]] ; then
       let output_mode=0
-      echo
+      echo_out2
       echo_warn "Output is not suppressed when help is to be displayed."
     fi
 
@@ -179,21 +232,21 @@ main(){
 
   if [[ ! -r $source_directory ]] ; then
     echo_out2
-    echo_error "The source directory '$c_n$source_directory$c_e' not found or not readable."
+    echo_error "The source directory '$c_n$source_directory$c_e' is not found or is not readable."
     echo_out2
     return 1
   fi
 
   if [[ ! -d $source_directory ]] ; then
     echo_out2
-    echo_error "The source directory '$c_n$source_directory$c_e' not a valid directory."
+    echo_error "The source directory '$c_n$source_directory$c_e' is not a valid directory."
     echo_out2
     return 1
   fi
 
   if [[ ! -x $source_directory ]] ; then
     echo_out2
-    echo_error "The source directory '$c_n$source_directory$c_e' not executable."
+    echo_error "The source directory '$c_n$source_directory$c_e' is not executable."
     echo_out2
     return 1
   fi
@@ -217,36 +270,6 @@ main(){
   return $?
 }
 
-print_help() {
-  echo_out
-  echo_out_e "${c_t}DSpace SAF Import De-Duplicator$c_r"
-  echo_out
-  echo_out_e "Given a ${c_n}source directory${c_r}, this removes duplicates and renames all files specified by '$c_n$contents_file$c_r' files found within the source directory."
-  echo_out
-  echo_out_e "The specified source directories will be recursively search the given source directories, operating on any directories containg a 'contents' file."
-  echo_out
-  echo_out_e "${c_h}Usage:$c_r"
-  echo_out_e "  $c_i$script_pathname$c_r ${c_n}[${c_r}options${c_n}]${c_r} ${c_n}<${c_r}source directory${c_n}>${c_r}"
-  echo_out
-  echo_out_e "${c_h}Options:$c_r"
-  echo_out_e " -${c_i}c${c_r}, --${c_i}checksum${c_r}   Specify a custom checksum utility (currently: '$c_n$checksum_command$c_r')."
-  echo_out_e " -${c_i}f${c_r}, --${c_i}file${c_r}       Specify a custom 'contents' file (currently: '$c_n$contents_file$c_r')."
-  echo_out_e " -${c_i}h${c_r}, --${c_i}help${c_r}       Print this help screen."
-  echo_out_e "     --${c_i}legacy${c_r}     Enable compatibility mode with legacy software versions, such as Bash 3.x."
-  echo_out_e " -${c_i}l${c_r}, --${c_i}log_file${c_r}   Specify a custom log file name (currently: '$c_n$change_log$c_r')."
-  echo_out_e " -${c_i}n${c_r}, --${c_i}no_color${c_r}   Do not apply color changes when printing output to screen."
-  echo_out_e " -${c_i}p${c_r}, --${c_i}preserve${c_r}   Preserve the original file names instead of renaming."
-  echo_out_e " -${c_i}r${c_r}, --${c_i}rename_to${c_r}  Specify a custom rename to filename prefix (currently: '$c_n$document_name_prefix$c_r')."
-  echo_out_e " -${c_i}s${c_r}, --${c_i}silent${c_r}     Do not print to the screen."
-  echo_out_e " -${c_i}P${c_r}, --${c_i}progress${c_r}   Display progress instead of normal output."
-  echo_out
-  echo_out_e "When --${c_i}preserve${c_r} is used, --${c_i}rename_to${c_r} is ignored."
-  echo_out
-  echo_out_e "Warning: ${c_i}legacy${c_r} mode is not guaranteed to work as it only has workarounds for known issues."
-  echo_out_e "Warning: You may have to set both ${c_i}--legacy${c_r} and ${c_i}--checksum md5${c_r} if using you are using OS-X."
-  echo_out
-}
-
 process_content() {
   local set=
   local sets=
@@ -259,15 +282,16 @@ process_content() {
   echo_out2
 
   if [[ $sort_command != "" ]] ; then
-    sets=$($find_command $source_directory -type f -name $contents_file | $sort_command -n)
+    sets=$($find_command $source_directory -nowarn -type f -name $contents_file | $sort_command -V)
   else
-    sets=$($find_command $source_directory -type f -name $contents_file)
+    sets=$($find_command $source_directory -nowarn -type f -name $contents_file)
   fi
 
   if [[ $sets == "" ]] ; then
     echo_out2
     echo_error "Did not find any files named '$c_n$contents_file$c_e' inside of the directory '$c_n$source_directory$c_e'."
     echo_out2
+    log_error "Did not find any files named '$c_n$contents_file$c_e' inside of the directory '$c_n$source_directory$c_e'."
     return 1
   fi
 
@@ -287,12 +311,14 @@ process_content() {
     if [[ $file_path == "" ]] ; then
       echo_out2
       echo_warn "Failed to process directory path for '$c_n$set$c_w', skipping set." 2
+      log_warn "Failed to process directory path for '$set', skipping set."
       continue
     fi
 
     if [[ ! -w $file_path ]] ; then
       echo_out2
       echo_warn "The directory path '$c_n$file_path$c_w' is not writable, skipping set." 2
+      log_warn "The directory path '$file_path' is not writable, skipping set."
       continue
     fi
 
@@ -317,29 +343,20 @@ process_documents() {
   local index=
 
   if [[ $legacy -eq 1 ]] ; then
-    local -a checksums=
-    local -a checksums_order=
-    local -a checksums_all=
+    local -a checksums=()
+    local -a checksums_order=()
+    local -a checksums_all=()
 
     # for compatibility with systems whose bash does no support associative arrays (-A).
     # "checksums_index" is used to store the checksum for "checksums".
     # "documents_all" is used to fetch the index for document names for "checksums_all" index array.
-    local -a checksums_index=
-    local -a documents_all=
-
-    # remove auto-added index of 0.
-    unset checksums_index[0]
-    unset documents_all[0]
+    local -a checksums_index=()
+    local -a documents_all=()
   else
-    local -A checksums=
-    local -A checksums_order=
-    local -A checksums_all=
+    local -A checksums=()
+    local -A checksums_order=()
+    local -A checksums_all=()
   fi
-
-  # remove auto-added index of 0.
-  unset checksums[0]
-  unset checksums_order[0]
-  unset checksums_all[0]
 
   if [[ $documents == "" ]] ; then
     echo_out2
@@ -916,10 +933,39 @@ echo_clear() {
   let echo_buffer_count=0
 }
 
+print_help() {
+  echo_out
+  echo_out_e "${c_t}DSpace SAF Import De-Duplicator$c_r"
+  echo_out
+  echo_out_e "Given a ${c_n}source directory${c_r}, this removes duplicates and renames all files specified by '$c_n$contents_file$c_r' files found within the source directory."
+  echo_out
+  echo_out_e "The specified source directories will be recursively search the given source directories, operating on any directories containg a 'contents' file."
+  echo_out
+  echo_out_e "${c_h}Usage:$c_r"
+  echo_out_e "  $c_i$script_pathname$c_r ${c_n}[${c_r}options${c_n}]${c_r} ${c_n}<${c_r}source directory${c_n}>${c_r}"
+  echo_out
+  echo_out_e "${c_h}Options:$c_r"
+  echo_out_e " -${c_i}c${c_r}, --${c_i}checksum${c_r}   Specify a custom checksum utility (currently: '$c_n$checksum_command$c_r')."
+  echo_out_e " -${c_i}f${c_r}, --${c_i}file${c_r}       Specify a custom 'contents' file (currently: '$c_n$contents_file$c_r')."
+  echo_out_e " -${c_i}h${c_r}, --${c_i}help${c_r}       Print this help screen."
+  echo_out_e "     --${c_i}legacy${c_r}     Enable compatibility mode with legacy software versions, such as Bash 3.x."
+  echo_out_e " -${c_i}l${c_r}, --${c_i}log_file${c_r}   Specify a custom log file name (currently: '$c_n$change_log$c_r')."
+  echo_out_e " -${c_i}n${c_r}, --${c_i}no_color${c_r}   Do not apply color changes when printing output to screen."
+  echo_out_e " -${c_i}p${c_r}, --${c_i}preserve${c_r}   Preserve the original file names instead of renaming."
+  echo_out_e " -${c_i}P${c_r}, --${c_i}progress${c_r}   Display progress instead of normal output."
+  echo_out_e " -${c_i}r${c_r}, --${c_i}rename_to${c_r}  Specify a custom rename to filename prefix (currently: '$c_n$document_name_prefix$c_r')."
+  echo_out_e " -${c_i}s${c_r}, --${c_i}silent${c_r}     Do not print to the screen."
+  echo_out
+  echo_out_e "When --${c_i}preserve${c_r} is used, --${c_i}rename_to${c_r} is ignored."
+  echo_out
+  echo_out_e "Warning: ${c_i}legacy${c_r} mode is not guaranteed to work as it only has workarounds for known issues."
+  echo_out_e "Warning: You may have to set both ${c_i}--legacy${c_r} and ${c_i}--checksum md5${c_r} if using you are using OS-X."
+  echo_out
+}
+
 main $*
 
 unset main
-unset print_help
 unset process_content
 unset process_documents
 unset count_documents
@@ -946,3 +992,4 @@ unset echo_warn
 unset echo_pad
 unset echo_count
 unset echo_clear
+unset print_help
