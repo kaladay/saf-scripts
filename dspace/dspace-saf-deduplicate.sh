@@ -963,7 +963,7 @@ print_help() {
   echo_out
 }
 
-main $*
+main "$@"
 
 unset main
 unset process_content
