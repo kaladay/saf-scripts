@@ -20,39 +20,60 @@
 # Sorting is set to "numeric" (sorts numeric is not a "numeric order" but a "numeric string order" such that '15' would come before '275', but '275' would come before '58'.
 #
 # depends on the following userspace commands:
-#   dirname, basename, date (optional), find, grep, sed, md5sum (or compatible, like shasum) (special support for 'md5' also exists), touch, and sort (optional).
+#   awk (or grep), dirname, basename, date (optional), find, sed, md5sum (or compatible, like shasum) (special support for 'md5' also exists), touch (optional), and sort (optional).
 
 main() {
+  # standard main parameters
   local script_pathname=$0
   local get_help=
   local no_color=
-  local -i i=0
   local grab_next=
   local parameter=
   local -i parameters_total=$#
   local extra_parameters=
   local -i extra_parameters_total=0
-  local -i preserve=0
   local -i output_mode=0
+  local -i legacy=0
+
+  # generic
+  local -i i=0
+
+  # additional parameters
+  local -i preserve=0
   local -i progress_printed=0
   local -i echo_buffer_count=0
   local -i alternative_checksum=0
-  local -i legacy=0
   local source_directory=
-
-  # parts
-  local change_log="changes.log"
   local document_name_prefix="document-"
   local contents_file="contents"
   local bundle_name="$(echo -e "\tbundle:ORIGINAL")"
 
+  # logging
+  local log_file="changes.log"
+
   # commands
-  local checksum_command="md5sum"
+  local checksum_command=""
   local find_command="find"
+  local grep_command=""
   local sort_command="sort"
 
   if [[ $(type -p date) ]] ; then
-    change_log="changes-$(date +'%Y_%m_%d').log"
+    log_file="changes-$(date +'%Y_%m_%d').log"
+  fi
+
+  if [[ $(type -p awk) ]] ; then
+    grep_command="awk"
+  elif [[ $(type -p grep) ]] ; then
+    grep_command="grep"
+  fi
+
+  if [[ $(type -p md5sum) ]] ; then
+    checksum_command="md5sum"
+  elif [[ $(type -p shasum) ]] ; then
+    checksum_command="shasum"
+  elif [[ $(type -p md5) ]] ; then
+    checksum_command="md5"
+    let alternative_checksum=1
   fi
 
   # reset, title, error, warning, highligh, notice, important.
@@ -105,7 +126,7 @@ main() {
             let output_mode=3
           fi
         elif [[ $source_directory == "" ]] ; then
-          source_directory=$(echo $parameter | sed -e 's|//*|/|g' -e 's|/*$|/|')
+          source_directory=$(echo "$parameter" | sed -e 's|//*|/|g' -e 's|/*$|/|')
         else
           extra_parameters[${extra_parameters_total}]=$parameter
           let extra_parameters_total++
@@ -118,7 +139,7 @@ main() {
           contents_file=$(echo "$parameter" | sed -e 's|^[[:space:]]*||' -e 's|[[:space:]]*$||')
           grab_next=
         elif [[ $grab_next == "-l" || $grab_next == "--log_file" ]] ; then
-          change_log=$(echo $parameter | sed -e 's|//*|/|g')
+          log_file=$(echo "$parameter" | sed -e 's|//*|/|g')
           grab_next=
         elif [[ $grab_next == "-r" || $grab_next == "--rename_to" ]] ; then
           document_name_prefix="$parameter"
@@ -133,11 +154,6 @@ main() {
   # if using alternative "md5" program, change the checksum processing method because 'md5' has a different output structure than say 'md5sum'.
   if [[ $checksum_command == "md5" ]] ; then
     let alternative_checksum=1
-  fi
-
-  # if "sort" is not available, disable it.
-  if [[ $(type -p $sort_command) == "" ]] ; then
-    sort_command=
   fi
 
   if [[ $(type -p basename) == "" ]] ; then
@@ -168,9 +184,9 @@ main() {
     return 1
   fi
 
-  if [[ $(type -p grep) == "" ]] ; then
+  if [[ $grep_command == "" ]] ; then
     echo_out2
-    echo_error "Failed to find required (grep) command '${c_n}grep$c_r'"
+    echo_error "Failed to find required (grep) command '$c_n$grep_command$c_r'"
     echo_out2
     return 1
   fi
@@ -182,11 +198,9 @@ main() {
     return 1
   fi
 
-  if [[ $(type -p touch) == "" ]] ; then
-    echo_out2
-    echo_error "Failed to find required (touch) command '${c_n}touch$c_r'"
-    echo_out2
-    return 1
+  # if "sort" is not available, disable it.
+  if [[ $(type -p $sort_command) == "" ]] ; then
+    sort_command=
   fi
 
   if [[ $get_help -eq 1 || $i -eq 0 ]] ; then
@@ -202,17 +216,17 @@ main() {
 
   if [[ $grab_next != "" ]] ; then
     echo_out2
-    echo_error "missing parameter for '$c_n$grab_next$c_e'"
+    echo_error "Missing parameter for '$c_n$grab_next$c_e'"
     echo_out2
     return 1
   elif [[ "$checksum_command" == "" || $(type -p "$checksum_command") == "" ]] ; then
     echo_out2
-    echo_error "invalid checksum program '$c_n$checksum_command$c_e'"
+    echo_error "Invalid checksum program '$c_n$checksum_command$c_e'"
     echo_out2
     return 1
   elif [[ "$contents_file" == "" || $(basename $contents_file) != "$contents_file" ]] ; then
     echo_out2
-    echo_error "invalid contents_file specified '$c_n$contents_file$c_e'"
+    echo_error "Invalid contents_file specified '$c_n$contents_file$c_e'"
     echo_out2
     return 1
   elif [[ $extra_parameters_total -gt 0 ]] ; then
@@ -251,19 +265,21 @@ main() {
     return 1
   fi
 
-  if [[ -d $change_log ]] ; then
+  if [[ -d $log_file ]] ; then
     echo_out2
-    echo_error "The log file cannot be a directory '$c_n$change_log$c_e'."
+    echo_error "The log file cannot be a directory '$c_n$log_file$c_e'."
     echo_out2
     return 1
   fi
 
-  touch -f $change_log
-  if [[ $? -ne 0 ]] ; then
-    echo_out2
-    echo_error "Unable to write to log file '$c_n$change_log$c_e'."
-    echo_out2
-    return 1
+  if [[ $(type -p touch) != "" ]] ; then
+    touch -f $log_file
+    if [[ $? -ne 0 ]] ; then
+      echo_out2
+      echo_error "Unable to write to log file '$c_n$log_file$c_e'."
+      echo_out2
+      return 1
+    fi
   fi
 
   process_content
@@ -388,8 +404,9 @@ process_documents() {
     fi
 
     echo_out_e "  Generating checksum for '$c_h$file_path$document$c_r'."
-    checksum=$($checksum_command $file_path$document)
 
+    # parse the checksum command in such a way that special-case checksum output formats can be handled, namely 'md5'.
+    parse_checksum $file_path$document
     if [[ $? -ne 0 ]] ; then
       echo_out2
       echo_error "Checksum generation for '$c_n$file_path$document$c_e' failed, skipping set." 2
@@ -398,9 +415,6 @@ process_documents() {
       let document_current++
       continue
     fi
-
-    # parse the checksum command in such a way that special-case checksum output formats can be handled, namely 'md5'.
-    parse_checksum
 
     if [[ $checksum == "" ]] ; then
       echo_out2
@@ -493,7 +507,7 @@ rename_documents_to_checksum() {
       checksum=${checksums_all[$file_name_old]}
     fi
 
-    extension=$(echo $file_name_old | grep -o '\.[^.]*$')
+    parse_file_extension "$file_name_old"
     file_name_new=$checksum$extension
 
     mv -v $file_path$file_name_old $file_path$file_name_new
@@ -540,7 +554,7 @@ rename_documents_to_checksum() {
         checksum=${checksums_all[$file_name_old]}
       fi
 
-      extension=$(echo $file_name_old | grep -o '\.[^.]*$')
+      parse_file_extension "$file_name_old"
       file_name_new=$checksum$extension
 
       if [[ -f $file_path$file_name_new && ! -f $file_path$file_name_old ]] ; then
@@ -603,7 +617,7 @@ rename_checksums_to_document() {
       order=${checksums_order[$checksum]}
     fi
 
-    extension=$(echo $file_name_old | grep -o '\.[^.]*$')
+    parse_file_extension "$file_name_old"
     file_name_checksum=$checksum$extension
 
     if [[ $preserve -eq 0 ]] ; then
@@ -670,7 +684,7 @@ rebuild_contents_file() {
 
     if [[ $preserve -eq 0 ]] ; then
       let i++
-      extension=$(echo $file_name | grep -o '\.[^.]*$')
+      parse_file_extension "$file_name"
       document_line="$document_name_prefix$i$extension$bundle_name"
     else
       document_line="$file_name$bundle_name"
@@ -705,11 +719,21 @@ rebuild_contents_file() {
 }
 
 parse_checksum() {
-  if [[ alternative_checksum -eq 1 ]] ; then
-    checksum=$(echo $checksum | sed -e 's|^.* = ||')
-  else
-    checksum=$(echo $checksum | sed -e 's|[[:space:]][[:space:]]*[^[:space:]].*$||')
+  local file="$1"
+  local unparsed=
+
+  unparsed=$($checksum_command $file)
+  if [[ $? -ne 0 ]] ; then
+    return 1
   fi
+
+  if [[ alternative_checksum -eq 1 ]] ; then
+    checksum=$(echo $unparsed | sed -e 's|^.* = ||')
+  else
+    checksum=$(echo $unparsed | sed -e 's|[[:space:]][[:space:]]*[^[:space:]].*$||')
+  fi
+
+  return 0
 }
 
 find_checksum_index() {
@@ -792,57 +816,102 @@ create_document_index_if_new() {
   fi
 }
 
+parse_file_extension() {
+  local filename="$1"
+
+  if [[ $grep_command == "awk" ]] ; then
+    extension=$(echo $filename | awk "match(\$0, /\.[^.]*\$/) { print substr(\$0, RSTART, RLENGTH) }")
+  else
+    extension=$(echo $filename | grep -so '\.[^.]*$')
+  fi
+}
+
 log_error() {
   local message=$1
-  echo "Error: $message" >> $change_log
+  local depth=$2
+
+  log_pad $depth
+  echo "Error: $message" >> $log_file
 }
 
 log_warn() {
   local message=$1
-  echo "Warning: $message" >> $change_log
+  local depth=$2
+
+  log_pad $depth
+  echo "Warning: $message" >> $log_file
 }
 
 log_out() {
   local message=$1
-  echo "$message" >> $change_log
+  local depth=$2
+
+  log_pad $depth
+  echo "$message" >> $log_file
+}
+
+log_pad() {
+  local -i depth=$1
+
+  if [[ $depth -gt 0 ]] ; then
+    printf "%${depth}s" " " >> $log_file
+  fi
+}
+
+log_pad() {
+  local -i depth=$1
+
+  if [[ $depth -gt 0 ]] ; then
+    printf "%${depth}s" " " >> $log_file
+  fi
 }
 
 echo_out() {
   local message=$1
+  local depth=$2
 
   if [[ $output_mode -eq 0 ]] ; then
+    echo_pad $depth
     echo "$message"
   fi
 }
 
 echo_out2() {
   local message=$1
+  local depth=$2
 
   if [[ $output_mode -eq 0 || $output_mode -eq 2 ]] ; then
+    echo_pad $depth
     echo "$message"
   fi
 }
 
 echo_out3() {
   local message=$1
+  local depth=$2
 
   if [[ $output_mode -eq 2 || $output_mode -eq 3 ]] ; then
+    echo_pad $depth
     echo "$message"
   fi
 }
 
 echo_out_e() {
   local message=$1
+  local depth=$2
 
   if [[ $output_mode -eq 0 ]] ; then
+    echo_pad $depth
     echo -e "$message"
   fi
 }
 
 echo_out_e2() {
   local message=$1
+  local depth=$2
 
   if [[ $output_mode -eq 0 || $output_mode -eq 2 ]] ; then
+    echo_pad $depth
     echo -e "$message"
   fi
 }
@@ -949,7 +1018,7 @@ print_help() {
   echo_out_e " -${c_i}f${c_r}, --${c_i}file${c_r}       Specify a custom 'contents' file (currently: '$c_n$contents_file$c_r')."
   echo_out_e " -${c_i}h${c_r}, --${c_i}help${c_r}       Print this help screen."
   echo_out_e "     --${c_i}legacy${c_r}     Enable compatibility mode with legacy software versions, such as Bash 3.x."
-  echo_out_e " -${c_i}l${c_r}, --${c_i}log_file${c_r}   Specify a custom log file name (currently: '$c_n$change_log$c_r')."
+  echo_out_e " -${c_i}l${c_r}, --${c_i}log_file${c_r}   Specify a custom log file name (currently: '$c_n$log_file$c_r')."
   echo_out_e " -${c_i}n${c_r}, --${c_i}no_color${c_r}   Do not apply color changes when printing output to screen."
   echo_out_e " -${c_i}p${c_r}, --${c_i}preserve${c_r}   Preserve the original file names instead of renaming."
   echo_out_e " -${c_i}P${c_r}, --${c_i}progress${c_r}   Display progress instead of normal output."
@@ -978,9 +1047,11 @@ unset find_document_index
 unset find_checksum_all_index
 unset create_checksum_index_if_new
 unset create_document_index_if_new
+unset parse_file_extension
 unset log_error
 unset log_warn
 unset log_out
+unset log_pad
 unset echo_out
 unset echo_out_e
 unset echo_out2

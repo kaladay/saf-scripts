@@ -33,24 +33,28 @@
 # This expects a bash of at least version 4, but provides some limited work-arounds for known problems with bash version 3.
 #
 # depends on the following userspace commands:
-#   bash, basename, date (optional), find, grep, sed, sort (optional), touch, and wc.
+#   bash, basename, date (optional), find, grep, sed, sort (optional), touch (optional), and wc.
 
 main() {
+  # standard main parameters
   local script_pathname=$0
   local get_help=
   local no_color=
-  local -i i=0
-  local -i j=0
   local grab_next=
   local parameter=
   local -i parameters_total=$#
   local extra_parameters=
   local -i extra_parameters_total=0
-  local change_log="changes.log"
-  local source_directory=
-  local -a directories=()
   local -i output_mode=0
   local -i legacy=0
+
+  # generic
+  local -i i=0
+  local -i j=0
+
+  # additional parameters
+  local source_directory=
+  local -a directories=()
   local -a columns=("Serial ID" "DOI" "Title" "Journal Title")
   local column_names=
   local file_map=
@@ -60,12 +64,15 @@ main() {
   local -i is_last_title=0
   local process_action="rename"
 
+  # logging
+  local log_file="changes.log"
+
   # commands
   local find_command="find"
   local sort_command="sort"
 
   if [[ $(type -p date) ]] ; then
-    change_log="changes-$(date +'%Y_%m_%d').log"
+    log_file="changes-$(date +'%Y_%m_%d').log"
   fi
 
   # reset, title, error, warning, highligh, notice, important.
@@ -130,8 +137,7 @@ main() {
 
           grab_next=
         elif [[ $grab_next == "-m" || $grab_next == "--map" ]] ; then
-          file_map=$(echo $parameter | sed -e 's|//*|/|g')
-
+          file_map=$(echo "$parameter" | sed -e 's|//*|/|g')
           grab_next=
         else
           break
@@ -170,11 +176,6 @@ main() {
     return 1
   fi
 
-  # if "sort" is not available, disable it.
-  if [[ $(type -p $sort_command) == "" ]] ; then
-    sort_command=
-  fi
-
   if [[ $(type -p basename) == "" ]] ; then
     echo_out2
     echo_error "Failed to find required (basename) command '${c_n}basename$c_r'"
@@ -203,11 +204,9 @@ main() {
     return 1
   fi
 
-  if [[ $(type -p touch) == "" ]] ; then
-    echo_out2
-    echo_error "Failed to find required (touch) command '${c_n}touch$c_r'"
-    echo_out2
-    return 1
+  # if "sort" is not available, disable it.
+  if [[ $(type -p $sort_command) == "" ]] ; then
+    sort_command=
   fi
 
   if [[ $(type -p wc) == "" ]] ; then
@@ -318,19 +317,21 @@ main() {
     return 1
   fi
 
-  if [[ -d $change_log ]] ; then
+  if [[ -d $log_file ]] ; then
     echo_out2
-    echo_error "The log file cannot be a directory '$c_n$change_log$c_e'."
+    echo_error "The log file cannot be a directory '$c_n$log_file$c_e'."
     echo_out2
     return 1
   fi
 
-  touch -f $change_log
-  if [[ $? -ne 0 ]] ; then
-    echo_out2
-    echo_error "Unable to write to log file '$c_n$change_log$c_e'."
-    echo_out2
-    return 1
+  if [[ $(type -p touch) != "" ]] ; then
+    touch -f $log_file
+    if [[ $? -ne 0 ]] ; then
+      echo_out2
+      echo_error "Unable to write to log file '$c_n$log_file$c_e'."
+      echo_out2
+      return 1
+    fi
   fi
 
   # build a list of directories within the specified source directory to process.
@@ -741,55 +742,90 @@ parse_doi_or_title() {
 
 log_error() {
   local message=$1
-  echo "Error: $message" >> $change_log
+  local depth=$2
+
+  log_pad $depth
+  echo "Error: $message" >> $log_file
 }
 
 log_warn() {
   local message=$1
-  echo "Warning: $message" >> $change_log
+  local depth=$2
+
+  log_pad $depth
+  echo "Warning: $message" >> $log_file
 }
 
 log_out() {
   local message=$1
-  echo "$message" >> $change_log
+  local depth=$2
+
+  log_pad $depth
+  echo "$message" >> $log_file
+}
+
+log_pad() {
+  local -i depth=$1
+
+  if [[ $depth -gt 0 ]] ; then
+    printf "%${depth}s" " " >> $log_file
+  fi
+}
+
+log_pad() {
+  local -i depth=$1
+
+  if [[ $depth -gt 0 ]] ; then
+    printf "%${depth}s" " " >> $log_file
+  fi
 }
 
 echo_out() {
   local message=$1
+  local depth=$2
 
   if [[ $output_mode -eq 0 ]] ; then
+    echo_pad $depth
     echo "$message"
   fi
 }
 
 echo_out2() {
   local message=$1
+  local depth=$2
 
   if [[ $output_mode -eq 0 || $output_mode -eq 2 ]] ; then
+    echo_pad $depth
     echo "$message"
   fi
 }
 
 echo_out3() {
   local message=$1
+  local depth=$2
 
   if [[ $output_mode -eq 2 || $output_mode -eq 3 ]] ; then
+    echo_pad $depth
     echo "$message"
   fi
 }
 
 echo_out_e() {
   local message=$1
+  local depth=$2
 
   if [[ $output_mode -eq 0 ]] ; then
+    echo_pad $depth
     echo -e "$message"
   fi
 }
 
 echo_out_e2() {
   local message=$1
+  local depth=$2
 
   if [[ $output_mode -eq 0 || $output_mode -eq 2 ]] ; then
+    echo_pad $depth
     echo -e "$message"
   fi
 }
@@ -914,15 +950,15 @@ print_help() {
   echo_out_e "  $c_i$script_pathname$c_r ${c_n}[${c_r}options${c_n}]${c_r} ${c_n}<${c_r}source directory${c_n}>${c_r}"
   echo_out
   echo_out_e "${c_h}Options:$c_r"
-  echo_out_e " -${c_i}c${c_r}, --${c_i}columns${c_r}    Specify custom columns as defined in the mapping file, comma separated."
-  echo_out_e " -${c_i}h${c_r}, --${c_i}help${c_r}       Print this help screen."
-  echo_out_e "     --${c_i}legacy${c_r}     Enable compatibility mode with legacy software versions, such as Bash 3.x."
-  echo_out_e " -${c_i}l${c_r}, --${c_i}log_file${c_r}   Specify a custom log file name (currently: '$c_n$change_log$c_r')."
-  echo_out_e " -${c_i}m${c_r}, --${c_i}map${c_r}        Specify the mapping CSV file."
-  echo_out_e " -${c_i}n${c_r}, --${c_i}no_color${c_r}   Do not apply color changes when printing output to screen."
-  echo_out_e " -${c_i}P${c_r}, --${c_i}progress${c_r}   Display progress instead of normal output."
-  echo_out_e " -${c_i}s${c_r}, --${c_i}silent${c_r}     Do not print to the screen."
-  echo_out_e " -${c_i}V${c_r}, --${c_i}validate${c_r}   Do not perform renaming, only validate mapping file."
+  echo_out_e " -${c_i}c${c_r}, --${c_i}columns${c_r}   Specify custom columns as defined in the mapping file, comma separated."
+  echo_out_e " -${c_i}h${c_r}, --${c_i}help${c_r}      Print this help screen."
+  echo_out_e "     --${c_i}legacy${c_r}    Enable compatibility mode with legacy software versions, such as Bash 3.x."
+  echo_out_e " -${c_i}l${c_r}, --${c_i}log_file${c_r}  Specify a custom log file name (currently: '$c_n$log_file$c_r')."
+  echo_out_e " -${c_i}m${c_r}, --${c_i}map${c_r}       Specify the mapping CSV file."
+  echo_out_e " -${c_i}n${c_r}, --${c_i}no_color${c_r}  Do not apply color changes when printing output to screen."
+  echo_out_e " -${c_i}P${c_r}, --${c_i}progress${c_r}  Display progress instead of normal output."
+  echo_out_e " -${c_i}s${c_r}, --${c_i}silent${c_r}    Do not print to the screen."
+  echo_out_e " -${c_i}V${c_r}, --${c_i}validate${c_r}  Do not perform renaming, only validate mapping file."
   echo_out
   echo_out_e "Warning: ${c_i}legacy${c_r} mode is not guaranteed to work as it only has workarounds for known issues."
   echo_out
@@ -936,6 +972,7 @@ unset process_content
 unset log_error
 unset log_warn
 unset log_out
+unset log_pad
 unset echo_out
 unset echo_out_e
 unset echo_out2
