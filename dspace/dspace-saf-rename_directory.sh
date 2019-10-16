@@ -54,6 +54,7 @@ main() {
     local -i j=0
 
     # additional parameters
+    local start_stamp=
     local source_directory=
     local -a directories=()
     local -a columns=("Serial ID" "DOI" "Title" "Journal Title")
@@ -75,6 +76,8 @@ main() {
 
     if [[ $(type -p date) ]] ; then
         log_file="changes-$(date +'%Y_%m_%d').log"
+
+        start_stamp=$(date +'%Y/%m/%d %_I:%M:%S %P %z')
     fi
 
     # @todo: add support for awk.
@@ -379,16 +382,26 @@ process_content() {
 
     if [[ $process_action == "validate" ]] ; then
         echo_out
-        echo_out_e "${c_t}Now Validating Map File:$c_r $c_n$file_map$c_r"
+        echo_out_e "${c_t}Now Validating Map File:$c_r '$c_n$file_map$c_t'$c_r"
 
         log_out
-        log_out "===== Validating Map File: '$file_map' ====="
+        if [[ $start_stamp == "" ]] ; then
+            log_out "===== Validating Map File: '$file_map' ====="
+        else
+            echo_out "Started On: $start_stamp" 2
+            log_out "===== Validating Map File: '$file_map' ($start_stamp) ====="
+        fi
     else
         echo_out
-        echo_out_e "${c_t}Now Processing Map File:$c_r $c_n$file_map$c_r"
+        echo_out_e "${c_t}Now Processing Map File:$c_r '$c_n$file_map$c_t'$c_r"
 
         log_out
-        log_out "===== Processing Map File: '$file_map' ====="
+        if [[ $start_stamp == "" ]] ; then
+            log_out "===== Processing Map File: '$file_map' ====="
+        else
+            echo_out "Started On: $start_stamp" 2
+            log_out "===== Processing Map File: '$file_map' ($start_stamp) ====="
+        fi
     fi
 
     result_wc=$(wc -l $file_map)

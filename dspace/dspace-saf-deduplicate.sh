@@ -44,6 +44,7 @@ main() {
     local -i i=0
 
     # additional parameters
+    local start_stamp=
     local -i preserve=0
     local -i progress_printed=0
     local -i echo_buffer_count=0
@@ -64,6 +65,8 @@ main() {
 
     if [[ $(type -p date) ]] ; then
         log_file="changes-$(date +'%Y_%m_%d').log"
+
+        start_stamp=$(date +'%Y/%m/%d %_I:%M:%S %P %z')
     fi
 
     if [[ $(type -p awk) ]] ; then
@@ -302,7 +305,12 @@ process_content() {
     echo_out_e2 "${c_t}Analyzing Source Directory:$c_r $c_n$source_directory$c_r"
 
     log_out
-    log_out "====== Analyzing Source Directory: '$source_directory' ======"
+    if [[ $start_stamp == "" ]] ; then
+        log_out "====== Analyzing Source Directory: '$source_directory' ======"
+    else
+        echo_out "Started On: $start_stamp" 2
+        log_out "====== Analyzing Source Directory: '$source_directory' ($start_stamp) ======"
+    fi
 
     if [[ $sort_command != "" ]] ; then
         sets=$($find_command $source_directory -nowarn -type f -name $contents_file | $sort_command -V)
