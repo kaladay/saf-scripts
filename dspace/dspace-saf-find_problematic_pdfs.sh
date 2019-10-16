@@ -202,6 +202,13 @@ main() {
         return 1
     fi
 
+    if [[ $(type -p find) == "" ]] ; then
+        echo_out2
+        echo_error "Failed to find required (find) command '${c_n}find$c_r'"
+        echo_out2
+        return 1
+    fi
+
     if [[ $grep_command == "" ]] ; then
         echo_out2
         echo_error "Failed to find required (grep) command '$c_n$grep_command$c_r'"
