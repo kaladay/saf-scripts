@@ -69,11 +69,19 @@ main() {
 
     # commands
     local find_command="find"
+    local grep_command="grep"
     local sort_command="sort"
 
     if [[ $(type -p date) ]] ; then
         log_file="changes-$(date +'%Y_%m_%d').log"
     fi
+
+    # @todo: add support for awk.
+    #if [[ $(type -p awk) ]] ; then
+    #    grep_command="awk"
+    #elif [[ $(type -p grep) ]] ; then
+    #    grep_command="grep"
+    #fi
 
     # reset, title, error, warning, highligh, notice, important.
     local c_r="\\033[0m"
@@ -391,7 +399,7 @@ process_content() {
         return 1
     fi
 
-    let total=$(echo $result_wc | grep -o "^[[:digit:]][[:digit:]]*")
+    let total=$(echo $result_wc | grep -so "^[[:digit:]][[:digit:]]*")
     if [[ $total -lt 2 ]] ; then
         echo_out2
         echo_error "Mapping file has to few rows, must have at least 2 rows: '$c_n$file_map$c_e'."
@@ -470,9 +478,9 @@ process_content() {
         fi
 
         if [[ ${#columns[@]} -eq 1 ]] ; then
-            serial_id=$(echo $matched_row | grep -o "^[^,]*\$")
+            serial_id=$(echo $matched_row | grep -so "^[^,]*\$")
         else
-            serial_id=$(echo $matched_row | grep -o "^[^,]*," | sed -e 's|,$||')
+            serial_id=$(echo $matched_row | grep -so "^[^,]*," | sed -e 's|,$||')
         fi
 
         if [[ $? -ne 0 || $serial_id == "" ]] ; then
@@ -485,9 +493,9 @@ process_content() {
         fi
 
         if [[ ${#columns[@]} -eq 1 ]] ; then
-            matches=$(grep "^$serial_id\$" "$file_map" | wc -l)
+            matches=$(grep -s "^$serial_id\$" "$file_map" | wc -l)
         else
-            matches=$(grep "^$serial_id," "$file_map" | wc -l)
+            matches=$(grep -s "^$serial_id," "$file_map" | wc -l)
         fi
 
         if [[ $matches != "1" ]] ; then
@@ -517,16 +525,16 @@ process_content() {
                 log_out "Parsing Serial ID from map using 'DOI': '$doi_from_parse'." 2
 
                 if [[ $is_last_doi -eq 0 ]] ; then
-                    matches=$(grep ",$doi_from_parse," "$file_map" | wc -l)
+                    matches=$(grep -s ",$doi_from_parse," "$file_map" | wc -l)
                 else
-                    matches=$(grep ",$doi_from_parse\$" "$file_map" | wc -l)
+                    matches=$(grep -s ",$doi_from_parse\$" "$file_map" | wc -l)
                 fi
 
                 if [[ $matches == "0" ]] ; then
                     if [[ $is_last_doi -eq 0 ]] ; then
-                        matches=$(grep ",\"$doi_from_parse\"," "$file_map" | wc -l)
+                        matches=$(grep -s ",\"$doi_from_parse\"," "$file_map" | wc -l)
                     else
-                        matches=$(grep ",\"$doi_from_parse\"\$" "$file_map" | wc -l)
+                        matches=$(grep -s ",\"$doi_from_parse\"\$" "$file_map" | wc -l)
                     fi
 
                     if [[ $matches == "1" ]] ; then
@@ -545,9 +553,9 @@ process_content() {
                 fi
 
                 if [[ $is_last_doi -eq 0 ]] ; then
-                    serial_id_from_parse=$(grep ",$doi_from_parse," "$file_map" | sed -e 's|,.*$||')
+                    serial_id_from_parse=$(grep -s ",$doi_from_parse," "$file_map" | sed -e 's|,.*$||')
                 else
-                    serial_id_from_parse=$(grep ",$doi_from_parse\$" "$file_map" | sed -e 's|,.*$||')
+                    serial_id_from_parse=$(grep -s ",$doi_from_parse\$" "$file_map" | sed -e 's|,.*$||')
                 fi
 
                 if [[ $serial_id_from_parse == "" ]] ; then
@@ -564,16 +572,16 @@ process_content() {
                 log_out "Parsing Serial ID from map using 'Title': '$title_from_parse'." 2
 
                 if [[ $is_last_title -eq 0 ]] ; then
-                    matches=$(grep ",$title_from_parse," "$file_map" | wc -l)
+                    matches=$(grep -s ",$title_from_parse," "$file_map" | wc -l)
                 else
-                    matches=$(grep ",$title_from_parse\$" "$file_map" | wc -l)
+                    matches=$(grep -s ",$title_from_parse\$" "$file_map" | wc -l)
                 fi
 
                 if [[ $matches == "0" ]] ; then
                     if [[ $is_last_title -eq 0 ]] ; then
-                        matches=$(grep ",\"$title_from_parse\"," "$file_map" | wc -l)
+                        matches=$(grep -s ",\"$title_from_parse\"," "$file_map" | wc -l)
                     else
-                        matches=$(grep ",\"$title_from_parse\"\$" "$file_map" | wc -l)
+                        matches=$(grep -s ",\"$title_from_parse\"\$" "$file_map" | wc -l)
                     fi
 
                     if [[ $matches == "1" ]] ; then
@@ -593,15 +601,15 @@ process_content() {
 
                 if [[ $match_is_quoted -eq 0 ]] ; then
                     if [[ $is_last_title -eq 0 ]] ; then
-                        serial_id_from_parse=$(grep ",$title_from_parse," "$file_map" | sed -e 's|,.*$||')
+                        serial_id_from_parse=$(grep -s ",$title_from_parse," "$file_map" | sed -e 's|,.*$||')
                     else
-                        serial_id_from_parse=$(grep ",$title_from_parse\$" "$file_map" | sed -e 's|,.*$||')
+                        serial_id_from_parse=$(grep -s ",$title_from_parse\$" "$file_map" | sed -e 's|,.*$||')
                     fi
                 else
                     if [[ $is_last_title -eq 0 ]] ; then
-                        serial_id_from_parse=$(grep ",\"$title_from_parse\"," "$file_map" | sed -e 's|,.*$||')
+                        serial_id_from_parse=$(grep -s ",\"$title_from_parse\"," "$file_map" | sed -e 's|,.*$||')
                     else
-                        serial_id_from_parse=$(grep ",\"$title_from_parse\"\$" "$file_map" | sed -e 's|,.*$||')
+                        serial_id_from_parse=$(grep -s ",\"$title_from_parse\"\$" "$file_map" | sed -e 's|,.*$||')
                     fi
                 fi
 
@@ -688,7 +696,7 @@ parse_doi_or_title() {
     title_from_parse=
 
     if [[ $parse_doi -eq 1 ]] ; then
-        doi_from_parse=$(grep -o '<dcvalue element="relation" qualifier="uri" language="en">.*</dcvalue>' $directory/dublin_core.xml | sed -e 's|<dcvalue element="relation" qualifier="uri" language="en">||' -e 's|</dcvalue>||')
+        doi_from_parse=$(grep -so '<dcvalue element="relation" qualifier="uri" language="en">.*</dcvalue>' $directory/dublin_core.xml | sed -e 's|<dcvalue element="relation" qualifier="uri" language="en">||' -e 's|</dcvalue>||')
 
         if [[ $? -eq 0 ]] ; then
             if [[ $doi_from_parse != "" ]] ; then
@@ -701,7 +709,7 @@ parse_doi_or_title() {
     fi
 
     if [[ $parse_title -eq 1 && ($parse_failed -eq 1 || $parse_doi -eq 0) ]] ; then
-        title_from_parse=$(grep -o '<dcvalue element="title" language="en">.*</dcvalue>' $directory/dublin_core.xml | sed -e 's|<dcvalue element="title" language="en">||' -e 's|</dcvalue>||')
+        title_from_parse=$(grep -so '<dcvalue element="title" language="en">.*</dcvalue>' $directory/dublin_core.xml | sed -e 's|<dcvalue element="title" language="en">||' -e 's|</dcvalue>||')
 
         if [[ $? -eq 0 ]] ; then
             if [[ $title_from_parse != "" ]] ; then
