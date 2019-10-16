@@ -319,10 +319,10 @@ process_content() {
 
     if [[ $sets == "" ]] ; then
         echo_out2
-        echo_error "Did not find any files named '$c_n$contents_file$c_e' inside of the directory '$c_n$source_directory$c_e'."
+        echo_warn "Did not find any files named '$c_n$contents_file$c_w' inside of the directory '$c_n$source_directory$c_w'." 2
         echo_out2
-        log_error "Did not find any files named '$c_n$contents_file$c_e' inside of the directory '$c_n$source_directory$c_e'."
-        return 1
+        log_warn "Did not find any files named '$c_n$contents_file$c_w' inside of the directory '$c_n$source_directory$c_w'." 2
+        return 0
     fi
 
     if [[ $output_mode -eq 2 || $output_mode -eq 3 ]] ; then

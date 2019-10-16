@@ -272,7 +272,6 @@ process_directories() {
     local -i directories_total=0
     local directory=
     local directory_name=
-    local -i directory_total=0
     local pdfs=
 
     echo_out
@@ -288,14 +287,16 @@ process_directories() {
 
     # build a list of directories within the specified source directory to process.
     for i in $($find_command $source_directory -nowarn -mindepth 1 -maxdepth 1 -type d ! -name '\.*') ; do
-        directories["$directory_total"]=$(basename $i)
-        let directory_total++
+        directories["$directories_total"]=$(basename $i)
+        let directories_total++
     done
 
-    if [[ $directory_total -eq 0 ]] ; then
-        echo_error "No Sub-Directories Found for Source Directory: '$c_n$source_directory$c_e'."
-        log_error "No Sub-Directories Found for Source Directory: '$source_directory'."
-        return 1
+    if [[ $directories_total -eq 0 ]] ; then
+        echo_out2
+        echo_warn "No Sub-Directories Found for Source Directory: '$c_n$source_directory$c_w'." 2
+        echo_out2
+        log_warn "No Sub-Directories Found for Source Directory: '$source_directory'." 2
+        return 0
     fi
 
     for i in ${!directories[@]} ; do

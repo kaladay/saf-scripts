@@ -56,7 +56,6 @@ main() {
     # additional parameters
     local start_stamp=
     local source_directory=
-    local -a directories=()
     local -a columns=("Serial ID" "DOI" "Title" "Journal Title")
     local column_names=
     local file_map=
@@ -348,19 +347,6 @@ main() {
         fi
     fi
 
-    # build a list of directories within the specified source directory to process.
-    unset i
-    local i=
-    if [[ $sort_command == "" ]] ; then
-        for i in $($find_command $source_directory -nowarn -mindepth 1 -maxdepth 1 -type d ! -name '\.*') ; do
-            directories+=($(basename $i))
-        done
-    else
-        for i in $($find_command $source_directory -nowarn -mindepth 1 -maxdepth 1 -type d ! -name '\.*' | sort -V) ; do
-            directories+=($(basename $i))
-        done
-    fi
-
     process_content
     return $?
 }
@@ -370,8 +356,11 @@ process_content() {
     local -i i=0
     local -i row=0
     local -i total=0
+    local index=
     local directory=
     local directory_name=
+    local -a directories=()
+    local -i directories_total=0
     local result_wc=
     local serial_id=
     local serial_id_from_parse=
@@ -406,6 +395,27 @@ process_content() {
         fi
     fi
 
+    # build a list of directories within the specified source directory to process.
+    if [[ $sort_command == "" ]] ; then
+        for index in $($find_command $source_directory -nowarn -mindepth 1 -maxdepth 1 -type d ! -name '\.*') ; do
+            directories["$directories_total"]=$(basename $index)
+            let directories_total++
+        done
+    else
+        for index in $($find_command $source_directory -nowarn -mindepth 1 -maxdepth 1 -type d ! -name '\.*' | sort -V) ; do
+            directories["$directories_total"]=$(basename $index)
+            let directories_total++
+        done
+    fi
+
+    if [[ $directories_total -eq 0 ]] ; then
+        echo_out2
+        echo_warn "Did not find any sub-directories inside the source directory '$c_n$source_directory$c_w'." 2
+        echo_out2
+        log_warn "Did not find any sub-directories inside the source directory '$c_n$source_directory$c_w'." 2
+        return 0
+    fi
+
     result_wc=$(wc -l $file_map)
     if [[ $? -ne 0 ]] ; then
         echo_out2
@@ -424,6 +434,7 @@ process_content() {
         return 1
     fi
 
+    let i=0
     while [[ $i < ${#directories[@]} ]] ; do
         directory=${directories[$i]}
         directory_name=$(basename $directory)
