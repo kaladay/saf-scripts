@@ -3,10 +3,6 @@
 # This (simple) script is designed to mass rename SAF generated directories into unique serial ids as provided by a mapping CSV spreadsheet.
 #
 # This script is designed to operate on multiple top-level sub-directories within a single source directory.
-# Example:
-#     ```
-#     dspace-rename_saf_directory.sh -m mapping.csv source_directory
-#     ```
 #
 # The SAF generated directories are named based on their row numbers in the input spreadsheet.
 # The mapping file should have the same row structure as the input spreadsheet.
@@ -32,8 +28,13 @@
 #
 # This expects a bash of at least version 4, but provides some limited work-arounds for known problems with bash version 3.
 #
+# Example Usage:
+#   ```
+#   dspace-saf-rename_directory.sh -m mapping.csv source_directory
+#   ```
+#
 # depends on the following userspace commands:
-#     bash, basename, date (optional), find, grep, sed, sort (optional), touch (optional), and wc.
+#   bash, basename, date (optional), find, grep, sed, sort (optional), touch (optional), and wc.
 
 main() {
     # standard main parameters

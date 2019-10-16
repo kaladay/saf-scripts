@@ -19,8 +19,13 @@
 # Sorting, via the sort command, is used to ensure consistent processing order so that the logs of multiple different executions can be compared.
 # Sorting is set to "numeric" (sorts numeric is not a "numeric order" but a "numeric string order" such that '15' would come before '275', but '275' would come before '58'.
 #
+# Example Usage:
+#   ```
+#   dspace-saf-deduplicate.sh -m mapping.csv source_directory
+#   ```
+#
 # depends on the following userspace commands:
-#     awk (or grep), dirname, basename, date (optional), find, sed, md5sum (or compatible, like shasum) (special support for 'md5' also exists), touch (optional), and sort (optional).
+#   awk (or grep), dirname, basename, date (optional), find, sed, md5sum (or compatible, like shasum) (special support for 'md5' also exists), touch (optional), and sort (optional).
 
 main() {
     # standard main parameters
