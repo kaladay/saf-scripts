@@ -137,9 +137,6 @@ main() {
                 elif [[ $grab_next == "-w" || $grab_next == "--write_directory" ]] ; then
                     write_directory=$(echo "$parameter" | sed -e 's|//*|/|g' -e 's|/*$|/|')
                     grab_next=
-                elif [[ $grab_next == "-m" || $grab_next == "--map" ]] ; then
-                    file_map=$(echo "$parameter" | sed -e 's|//*|/|g')
-                    grab_next=
                 else
                     break
                 fi
