@@ -294,8 +294,10 @@ process_content() {
   local -i document_total=0
 
   echo_out2
-  echo_out_e2 "${c_t}Analyzing Directory:$c_r $c_n$source_directory$c_r"
-  echo_out2
+  echo_out_e2 "${c_t}Analyzing Source Directory:$c_r $c_n$source_directory$c_r"
+
+  log_out
+  log_out "====== Analyzing Source Directory: '$source_directory' ======"
 
   if [[ $sort_command != "" ]] ; then
     sets=$($find_command $source_directory -nowarn -type f -name $contents_file | $sort_command -V)
@@ -510,8 +512,7 @@ rename_documents_to_checksum() {
     parse_file_extension "$file_name_old"
     file_name_new=$checksum$extension
 
-    mv -v $file_path$file_name_old $file_path$file_name_new
-
+    mv $file_path$file_name_old $file_path$file_name_new
     if [[ $? -ne 0 ]] ; then
       echo_out2
       echo_error "Something went wrong while moving '$c_n$file_path$file_name_old$c_e' to '$c_n$file_path$file_name_new$c_e'." 6
@@ -519,6 +520,7 @@ rename_documents_to_checksum() {
       log_error "Failed to move '$file_path$file_name_old' to '$file_path$file_name_new'."
       break
     else
+      echo_out_e "Renamed '$c_n$file_path$file_name_old$c_r' to '$c_n$file_path$file_name_new$c_r'." 2
       log_out "Renamed '$file_path$file_name_old' to '$file_path$file_name_new'."
     fi
   done
@@ -626,8 +628,7 @@ rename_checksums_to_document() {
       file_name_desired=$file_name_old
     fi
 
-    mv -v $file_path$file_name_checksum $file_path$file_name_desired
-
+    mv $file_path$file_name_checksum $file_path$file_name_desired
     if [[ $? -ne 0 ]] ; then
       echo_out2
       echo_error "Something went wrong while moving '$c_n$file_path$file_name_checksum$c_e' to '$c_n$file_path$file_name_desired$c_e'." 6
@@ -635,6 +636,7 @@ rename_checksums_to_document() {
       log_error "Attempted but failed to move '$file_path$file_name_checksum' to '$file_path$file_name_desired'."
       return 1
     else
+      echo_out_e "Renamed '$c_n$file_path$file_name_checksum$c_r' to '$c_n$file_path$file_name_desired$c_r'." 2
       log_out "Renamed '$file_path$file_name_checksum' to '$file_path$file_name_desired'."
     fi
   done
