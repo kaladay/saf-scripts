@@ -436,8 +436,8 @@ process_content() {
 
     let i=0
     while [[ $i < ${#directories[@]} ]] ; do
-        directory=${directories[$i]}
-        directory_name=$(basename $directory)
+        directory_name=${directories[$i]}
+        directory="${directory}/"
 
         echo_out
         echo_out_e "${c_t}Now Processing Directory:$c_r $c_n$directory_name$c_r"
