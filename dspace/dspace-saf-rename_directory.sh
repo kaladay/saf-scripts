@@ -723,7 +723,7 @@ parse_doi_or_title() {
     title_from_parse=
 
     if [[ $parse_doi -eq 1 ]] ; then
-        doi_from_parse=$(grep -so '<dcvalue element="relation" qualifier="uri" language="en">.*</dcvalue>' $directory/dublin_core.xml | sed -e 's|<dcvalue element="relation" qualifier="uri" language="en">||' -e 's|</dcvalue>||')
+        doi_from_parse=$(grep -so '<dcvalue element="relation" qualifier="uri" language="en">.*</dcvalue>' ${directory}dublin_core.xml | sed -e 's|<dcvalue element="relation" qualifier="uri" language="en">||' -e 's|</dcvalue>||')
 
         if [[ $? -eq 0 ]] ; then
             if [[ $doi_from_parse != "" ]] ; then
@@ -736,7 +736,7 @@ parse_doi_or_title() {
     fi
 
     if [[ $parse_title -eq 1 && ($parse_failed -eq 1 || $parse_doi -eq 0) ]] ; then
-        title_from_parse=$(grep -so '<dcvalue element="title" language="en">.*</dcvalue>' $directory/dublin_core.xml | sed -e 's|<dcvalue element="title" language="en">||' -e 's|</dcvalue>||')
+        title_from_parse=$(grep -so '<dcvalue element="title" language="en">.*</dcvalue>' ${directory}dublin_core.xml | sed -e 's|<dcvalue element="title" language="en">||' -e 's|</dcvalue>||')
 
         if [[ $? -eq 0 ]] ; then
             if [[ $title_from_parse != "" ]] ; then

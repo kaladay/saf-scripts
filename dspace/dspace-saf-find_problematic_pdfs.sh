@@ -310,12 +310,14 @@ process_directories() {
 
         if [[ ! -d "$source_directory$directory" ]] ; then
             echo_error "Invalid Directory: '$c_n$directory_name$c_w'." 2
+            echo_out2
             log_error "Invalid Directory: '$source_directory$directory'." 2
             continue
         fi
 
-        if [[ ! -f "$source_directory$directory/$contents_file" ]] ; then
+        if [[ ! -f "$source_directory$directory$contents_file" ]] ; then
             echo_warn "Missing Contents File: '$c_n$contents_file$c_w'." 2
+            echo_out2
             log_warn "Missing Contents File: '$source_directory$directory$contents_file'." 2
             continue
         fi
@@ -328,6 +330,7 @@ process_directories() {
 
         if [[ $pdfs == "" ]] ; then
             echo_warn "Empty Contents File: '$c_n$directory$contents_file$c_w'." 2
+            echo_out2
             log_warn "Empty Contents File: '$source_directory$directory$contents_file'." 2
             continue
         fi

@@ -339,15 +339,15 @@ process_content() {
         file_path=$(dirname $set)
 
         if [[ $file_path == "" ]] ; then
-            echo_out2
             echo_warn "Failed to process directory path for '$c_n$set$c_w', skipping set." 2
+            echo_out2
             log_warn "Failed to process directory path for '$set', skipping set."
             continue
         fi
 
         if [[ ! -w $file_path ]] ; then
-            echo_out2
             echo_warn "The directory path '$c_n$file_path$c_w' is not writable, skipping set." 2
+            echo_out2
             log_warn "The directory path '$file_path' is not writable, skipping set."
             continue
         fi
