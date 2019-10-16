@@ -30,7 +30,7 @@
 #
 # Example Usage:
 #   ```
-#   dspace-saf-rename_directory.sh -m mapping.csv source_directory
+#   saf-dspace-rename_directory.sh -m mapping.csv source_directory
 #   ```
 #
 # depends on the following userspace commands:

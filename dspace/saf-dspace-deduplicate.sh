@@ -21,7 +21,7 @@
 #
 # Example Usage:
 #   ```
-#   dspace-saf-deduplicate.sh -m mapping.csv source_directory
+#   saf-dspace-deduplicate.sh -m mapping.csv source_directory
 #   ```
 #
 # depends on the following userspace commands:

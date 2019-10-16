@@ -20,7 +20,7 @@
 #
 # Example Usage:
 #   ```
-#   dspace-saf-find_problematic_pdfs.sh source_directory
+#   saf-dspace-find_problematic_pdfs.sh source_directory
 #   ```
 #
 # depends on the following userspace commands:
