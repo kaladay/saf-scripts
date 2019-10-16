@@ -661,7 +661,6 @@ echo_clear() {
 }
 
 print_help() {
-    # @todo: update this, it was copied from a different script.
     local default_column_names=
 
     let i=0
