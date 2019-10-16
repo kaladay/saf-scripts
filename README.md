@@ -24,6 +24,12 @@ SAFCreator currently does not support naming directories by some column name, so
 
 Example Usage: `dspace-saf-rename_directory.sh -m mapping.csv source_directory`.
 
+### dspace-saf-remove_duplicate_pdfs.sh
+A script for removing duplicte PDFs identified by the dspace-saf-find_problematic_pdfs.sh script.
+The duplicates directory should be the checksums directory found in the write directory produced from the dspace-saf-find_problematic_pdfs.sh script.
+
+Example Usage: `dspace-saf-remove_duplicate_pdfs.sh source_directory duplicates_directory`.
+
 ## References:
 - [DSpace](https://github.com/DSpace/DSpace)
 - [SAFCreator](https://github.com/jcreel/SAFCreator)
