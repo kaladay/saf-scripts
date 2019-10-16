@@ -174,7 +174,9 @@ main() {
         echo_error "missing parameter for '$c_n$grab_next$c_e'"
         echo_out2
         return 1
-    elif [[ $extra_parameters_total -gt 0 ]] ; then
+    fi
+
+    if [[ $extra_parameters_total -gt 0 ]] ; then
         let i=0
         echo_out2
         local custom_message="only one source directory may be specified at a time, you specified '$c_n$source_directory$c_e'"

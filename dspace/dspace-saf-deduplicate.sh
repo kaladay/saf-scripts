@@ -164,6 +164,24 @@ main() {
         let alternative_checksum=1
     fi
 
+    if [[ $get_help -eq 1 || $i -eq 0 ]] ; then
+        if [[ $output_mode -ne 0 && $output_mode -ne 3 ]] ; then
+            let output_mode=0
+            echo_out2
+            echo_warn "Output is not suppressed when help is to be displayed."
+        fi
+
+        print_help
+        return 0
+    fi
+
+    if [[ $grab_next != "" ]] ; then
+        echo_out2
+        echo_error "Missing parameter for '$c_n$grab_next$c_e'"
+        echo_out2
+        return 1
+    fi
+
     if [[ $(type -p basename) == "" ]] ; then
         echo_out2
         echo_error "Failed to find required (basename) command '${c_n}basename$c_r'"
@@ -171,7 +189,7 @@ main() {
         return 1
     fi
 
-    if [[ $(type -p $checksum_command) == "" ]] ; then
+    if [[ "$checksum_command" == "" || $(type -p "$checksum_command") == "" ]] ; then
         echo_out2
         echo_error "Failed to find required (checksum) command '$c_n$checksum_command$c_r'"
         echo_out2
@@ -211,33 +229,14 @@ main() {
         sort_command=
     fi
 
-    if [[ $get_help -eq 1 || $i -eq 0 ]] ; then
-        if [[ $output_mode -ne 0 && $output_mode -ne 3 ]] ; then
-            let output_mode=0
-            echo_out2
-            echo_warn "Output is not suppressed when help is to be displayed."
-        fi
-
-        print_help
-        return 0
-    fi
-
-    if [[ $grab_next != "" ]] ; then
-        echo_out2
-        echo_error "Missing parameter for '$c_n$grab_next$c_e'"
-        echo_out2
-        return 1
-    elif [[ "$checksum_command" == "" || $(type -p "$checksum_command") == "" ]] ; then
-        echo_out2
-        echo_error "Invalid checksum program '$c_n$checksum_command$c_e'"
-        echo_out2
-        return 1
-    elif [[ "$contents_file" == "" || $(basename $contents_file) != "$contents_file" ]] ; then
+    if [[ "$contents_file" == "" || $(basename $contents_file) != "$contents_file" ]] ; then
         echo_out2
         echo_error "Invalid contents_file specified '$c_n$contents_file$c_e'"
         echo_out2
         return 1
-    elif [[ $extra_parameters_total -gt 0 ]] ; then
+    fi
+
+    if [[ $extra_parameters_total -gt 0 ]] ; then
         let i=0
         echo_out2
         local custom_message="only one source directory may be specified at a time, you specified '$c_n$source_directory$c_e'"
