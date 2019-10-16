@@ -403,8 +403,6 @@ process_content() {
   while [[ $i < ${#directories[@]} ]] ; do
     directory=${directories[$i]}
     directory_name=$(basename $directory)
-    let row=${directories[$i]}
-
 
     echo_out
     echo_out_e "${c_t}Now Processing Directory:$c_r $c_n$directory_name$c_r"
@@ -412,38 +410,48 @@ process_content() {
     log_out
     log_out "==== Processing Directory: '$directory_name' ===="
 
-    echo_out
-    echo_out_e "Validating directory '$c_n$directory$c_r' against the map file."
-    log_out "Validating directory '$directory' against the map file."
+    echo_out_e "Validating against the map file." 2
+    log_out "Validating directory '$directory' against the map file." 2
 
-    if [[ $directory != $row ]] ; then
+    if [[ $(echo ${directories[$i]} | grep -so "^[[:digit:]]*$") == "" ]] ; then
+      if [[ $(echo ${directories[$i]} | grep -so "^[[:digit:]][[:digit:]]*\.duplicate-[[:digit:]][[:digit:]]*$") == "" ]] ; then
+        echo_warn "Invalid Directory Name: '$c_n$directory_name$c_w', must be a number, skipping directory." 4
+        echo_out2
+        log_warn "Invalid Directory Name: '$directory_name', must be a number." 4
+      else
+        echo_warn "Skipping Duplicate Directory: '$c_n$directory_name$c_w'." 4
+        echo_out2
+        log_warn "Skipping Duplicate Directory: '$directory_name'." 4
+      fi
+
+      let i++
+      continue
+    else
+      let row=${directories[$i]}
+    fi
+
+    if [[ $directory_name != $row ]] ; then
+      echo_warn "Invalid Directory Name: '$c_n$directory_name$c_w', must be a number, skipping directory." 4
       echo_out2
-      echo_error "Invalid Directory Name: '$c_n$directory$c_e', must be a number."
-      echo_out2
-      log_error "Invalid Directory Name: '$directory', must be a number."
-      failure=1
+      log_warn "Invalid Directory Name: '$directory_name', must be a number." 4
 
       let i++
       continue
     fi
 
     if [[ $row -lt 2 ]] ; then
+      echo_warn "Invalid Directory Name: '$c_n$directory_name$c_w', row number must be greater than 1, skipping directory." 4
       echo_out2
-      echo_error "Invalid Directory Name: '$c_n$directory$c_e', row number must be greater than 1."
-      echo_out2
-      log_error "Invalid Directory Name: '$directory', row number must be greater than 1."
-      failure=1
+      log_warn "Invalid Directory Name: '$directory_name', row number must be greater than 1." 4
 
       let i++
       continue
     fi
 
     if [[ $row -gt $total ]] ; then
+      echo_warn "Invalid Directory Name: '$c_n$directory_name$c_w', row number must be less than number of rows in map file, skipping directory." 4
       echo_out2
-      echo_error "Invalid Directory Name: '$c_n$directory$c_e', row number must be less than number of rows in map file."
-      echo_out2
-      log_error "Invalid Directory Name: '$directory', row number must be less than number of rows in map file."
-      failure=1
+      log_warn "Invalid Directory Name: '$directory_name', row number must be less than number of rows in map file." 4
 
       let i++
       continue
@@ -452,10 +460,9 @@ process_content() {
     # Validate that the given row has a non-empty first column (the unique id), that it is a valid number, and confirm that it is unique within the map file.
     matched_row=$(sed "$row,$row!d" $file_map)
     if [[ $? -ne 0 || $matched_row == "" ]] ; then
+      echo_error "Failed to parse row '$c_n$row$c_e' using sed command." 4
       echo_out2
-      echo_error "Failed to parse row '$c_n$row$c_e' using sed command."
-      echo_out2
-      log_error "Failed to parse row '$row' using sed command."
+      log_error "Failed to parse row '$row' using sed command." 4
       failure=1
 
       let i++
@@ -469,10 +476,9 @@ process_content() {
     fi
 
     if [[ $? -ne 0 || $serial_id == "" ]] ; then
+      echo_error "Failed to parse Serial ID from row '$c_n$row$c_e' in the map file, matched row: '$c_n$matched_row$c_e'." 4
       echo_out2
-      echo_error "Failed to parse Serial ID from row '$c_n$row$c_e' in the map file, matched row: '$c_n$matched_row$c_e'."
-      echo_out2
-      log_error "Failed to parse Serial ID from row '$row' in the map file, matched row: '$matched_row'."
+      log_error "Failed to parse Serial ID from row '$row' in the map file, matched row: '$matched_row'." 4
 
       let i++
       continue
@@ -485,10 +491,9 @@ process_content() {
     fi
 
     if [[ $matches != "1" ]] ; then
+      echo_error "Too many matches for '$c_n$serial_id_number$c_e': '$c_n$matches$c_e'." 4
       echo_out2
-      echo_error "Too many matches for '$c_n$serial_id_number$c_e': '$c_n$matches$c_e'."
-      echo_out2
-      log_error "Too many matches for '$serial_id_number': '$matches'."
+      log_error "Too many matches for '$serial_id_number': '$matches'." 4
 
       let i++
       continue
@@ -508,8 +513,8 @@ process_content() {
       let match_is_quoted=0
 
       if [[ $doi_from_parse != "" ]] ; then
-        echo_out_e "Parsing Serial ID from map using '${c_n}DOI$c_r': '$c_n$doi_from_parse$c_r'."
-        log_out "Parsing Serial ID from map using 'DOI': '$doi_from_parse'."
+        echo_out_e "Parsing Serial ID from map using '${c_n}DOI$c_r': '$c_n$doi_from_parse$c_r'." 2
+        log_out "Parsing Serial ID from map using 'DOI': '$doi_from_parse'." 2
 
         if [[ $is_last_doi -eq 0 ]] ; then
           matches=$(grep ",$doi_from_parse," "$file_map" | wc -l)
@@ -530,10 +535,9 @@ process_content() {
         fi
 
         if [[ $matches != "1" ]] ; then
+          echo_error "Too many or too few matches for '$c_n$directory_name$c_e', using DOI '$c_n$doi_from_parse$c_e'." 4
           echo_out2
-          echo_error "Too many or too few matches for '$c_n$directory_name$c_e', using DOI '$c_n$doi_from_parse$c_e'."
-          echo_out2
-          log_error "Too many or too few matches for '$directory_name', using DOI '$doi_from_parse'."
+          log_error "Too many or too few matches for '$directory_name', using DOI '$doi_from_parse'." 4
 
           failure=1
           let i++
@@ -547,18 +551,17 @@ process_content() {
         fi
 
         if [[ $serial_id_from_parse == "" ]] ; then
+          echo_error "Failed to load Serial ID for '$c_n$directory_name$c_e', using DOI '$c_n$doi_from_parse$c_e'." 4
           echo_out2
-          echo_error "Failed to load Serial ID for '$c_n$directory_name$c_e', using DOI '$c_n$doi_from_parse$c_e'."
-          echo_out2
-          log_error "Failed to load Serial ID for '$directory_name', using DOI '$doi_from_parse'."
+          log_error "Failed to load Serial ID for '$directory_name', using DOI '$doi_from_parse'." 4
 
           failure=1
           let i++
           continue
         fi
       elif [[ $title_from_parse != "" ]] ; then
-        echo_out_e "Parsing Serial ID from map using '${c_n}Title$c_r': '$c_n$title_from_parse$c_r'."
-        log_out "Parsing Serial ID from map using 'Title': '$title_from_parse'."
+        echo_out_e "Parsing Serial ID from map using '${c_n}Title$c_r': '$c_n$title_from_parse$c_r'." 2
+        log_out "Parsing Serial ID from map using 'Title': '$title_from_parse'." 2
 
         if [[ $is_last_title -eq 0 ]] ; then
           matches=$(grep ",$title_from_parse," "$file_map" | wc -l)
@@ -579,10 +582,9 @@ process_content() {
         fi
 
         if [[ $matches != "1" ]] ; then
+          echo_error "Too many or too few matches for '$c_n$directory_name$c_e', using Title '$c_n$title_from_parse$c_e'." 4
           echo_out2
-          echo_error "Too many or too few matches for '$c_n$directory_name$c_e', using Title '$c_n$title_from_parse$c_e'."
-          echo_out2
-          log_error "Too many or too few matches for '$directory_name', using Title '$title_from_parse'."
+          log_error "Too many or too few matches for '$directory_name', using Title '$title_from_parse'." 4
 
           failure=1
           let i++
@@ -604,10 +606,9 @@ process_content() {
         fi
 
         if [[ $serial_id_from_parse == "" ]] ; then
+          echo_error "Failed to load Serial ID for '$c_n$directory_name$c_e', using Title '$c_n$title_from_parse$c_e'." 4
           echo_out2
-          echo_error "Failed to load Serial ID for '$c_n$directory_name$c_e', using Title '$c_n$title_from_parse$c_e'."
-          echo_out2
-          log_error "Failed to load Serial ID for '$directory_name', using Title '$title_from_parse'."
+          log_error "Failed to load Serial ID for '$directory_name', using Title '$title_from_parse'." 4
 
           failure=1
           let i++
@@ -616,17 +617,16 @@ process_content() {
       fi
 
       if [[ $serial_id_from_parse != "" ]] ; then
-        echo_out_e "Validating Serial ID '$c_n$serial_id$c_r' against mapping file Serial ID: '$c_n$serial_id_from_parse$c_r'."
-        log_out "Validating Serial ID '$serial_id' against mapping file Serial ID: '$serial_id_from_parse'."
+        echo_out_e "Validating Serial ID '$c_n$serial_id$c_r' against mapping file Serial ID: '$c_n$serial_id_from_parse$c_r'." 2
+        log_out "Validating Serial ID '$serial_id' against mapping file Serial ID: '$serial_id_from_parse'." 2
 
         if [[ $serial_id == $serial_id_from_parse ]] ; then
-          echo_out_e "Serial ID '$c_n$serial_id$c_r' is valid."
-          log_out "Serial ID '$serial_id' is valid."
+          echo_out_e "Serial ID '$c_n$serial_id$c_r' is valid." 4
+          log_out "Serial ID '$serial_id' is valid." 4
         else
+          echo_error "Failed to match Serial ID: directory Serial ID = '$c_n$serial_id$c_e', mapping file Serial ID = '$c_n$serial_id_from_parse$c_e'." 4
           echo_out2
-          echo_error "Failed to match Serial ID for '$c_n$directory_name$c_e': directory Serial ID = '$c_n$serial_id$c_e', mapping file Serial ID = '$c_n$serial_id_from_parse$c_e'."
-          echo_out2
-          log_error "Failed to match Serial ID for '$directory_name': directory Serial ID = '$serial_id', mapping file Serial ID = '$serial_id_from_parse'."
+          log_error "Failed to match Serial ID: directory Serial ID = '$serial_id', mapping file Serial ID = '$serial_id_from_parse'." 4
 
           failure=1
           let i++
@@ -634,27 +634,25 @@ process_content() {
         fi
       fi
     else
-      echo_out_e "Serial ID '$c_n$serial_id$c_r' is assumed to be valid."
-      log_out "Serial ID '$serial_id' is assumed to be valid."
+      echo_out_e "Serial ID '$c_n$serial_id$c_r' is assumed to be valid." 2
+      log_out "Serial ID '$serial_id' is assumed to be valid." 2
     fi
 
     if [[ $process_action == "rename" ]] ; then
-      echo_out_e "Renaming directory from '$c_n$directory_name$c_r' to (Serial ID): '$c_n$serial_id$c_r'."
-      log_out "Renaming directory from '$directory_name' to (Serial ID): '$serial_id'."
+      echo_out_e "Renaming directory from '$c_n$directory_name$c_r' to (Serial ID): '$c_n$serial_id$c_r'." 2
+      log_out "Renaming directory from '$directory_name' to (Serial ID): '$serial_id'." 2
 
       new_name=$serial_id
       if [[ -d $new_name ]] ; then
         new_name=${serial_id}.duplicate-$RANDOM
-        echo_out2
-        echo_warn "Duplicate Serial ID detected for '$c_n$directory_name$c_r', renaming to '$c_n$new_name$c_w'."
-        log_out "Duplicate Serial ID detected for '$directory_name', renaming to '$new_name'."
+        echo_warn "Duplicate Serial ID detected for '$c_n$directory_name$c_w', renaming to '$c_n$new_name$c_w'." 2
+        log_out "Duplicate Serial ID detected for '$directory_name', renaming to '$new_name'." 2
       fi
 
       if [[ $new_name == "" ]] ; then
+        echo_error "Cannot Rename: '$c_n$directory_name$c_e', No valid Serial ID found." 2
         echo_out2
-        echo_error "Cannot Rename: '$c_n$directory_name$c_e', No valid Serial ID found."
-        echo_out2
-        log_error "Cannot Rename: '$directory_name', No valid Serial ID found."
+        log_error "Cannot Rename: '$directory_name', No valid Serial ID found." 2
 
         failure=1
         let i++
@@ -663,10 +661,9 @@ process_content() {
 
       mv "$directory" "$parent_directory$new_name"
       if [[ $? -ne 0 ]] ; then
+        echo_error "Failed to Rename: '$c_n$directory$c_e' to '$c_n$parent_directory$new_name$c_e'." 2
         echo_out2
-        echo_error "Failed to Rename: '$c_n$directory$c_e' to '$c_n$parent_directory$new_name$c_e'."
-        echo_out2
-        log_error "Failed to Rename: '$directory' to '$parent_directory$new_name'."
+        log_error "Failed to Rename: '$directory' to '$parent_directory$new_name'." 2
 
         failure=1
         let i++
@@ -720,20 +717,20 @@ parse_doi_or_title() {
     if [[ $parse_doi -eq 1 ]] ; then
       if [[ $parse_title -eq 1 ]] ; then
         echo_out2
-        echo_error "Unable to find doi or title for: '$c_n$directory$c_r'."
+        echo_error "Unable to find doi or title." 2
         echo_out2
-        log_error "Unable to find doi or title for: '$directory'."
+        log_error "Unable to find doi or title." 2
       else
         echo_out2
-        echo_error "Unable to find doi for: '$c_n$directory$c_r'."
+        echo_error "Unable to find doi." 2
         echo_out2
-        log_error "Unable to find doi for: '$directory'."
+        log_error "Unable to find doi." 2
       fi
     elif [[ $parse_title -eq 1 ]] ; then
       echo_out2
-      echo_error "Unable to find title for: '$c_n$directory$c_r'."
+      echo_error "Unable to find title." 2
       echo_out2
-      log_error "Unable to find title for: '$directory'."
+      log_error "Unable to find title." 2
     fi
   fi
 
