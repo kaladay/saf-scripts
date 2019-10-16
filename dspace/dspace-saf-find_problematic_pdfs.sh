@@ -237,18 +237,18 @@ main() {
         return 1
     fi
 
-    if [[ -d $log_file ]] ; then
+    if [[ -d $write_directory$log_file ]] ; then
         echo_out2
-        echo_error "The log file cannot be a directory '$c_n$log_file$c_e'."
+        echo_error "The log file cannot be a directory '$c_n$write_directory$log_file$c_e'."
         echo_out2
         return 1
     fi
 
     if [[ $(type -p touch) != "" ]] ; then
-        touch -f $log_file
+        touch -f $write_directory$log_file
         if [[ $? -ne 0 ]] ; then
             echo_out2
-            echo_error "Unable to write to log file '$c_n$log_file$c_e'."
+            echo_error "Unable to write to log file '$c_n$write_directory$log_file$c_e'."
             echo_out2
             return 1
         fi
@@ -483,7 +483,7 @@ log_error() {
     local depth=$2
 
     log_pad $depth
-    echo "Error: $message" >> $log_file
+    echo "Error: $message" >> $write_directory$log_file
 }
 
 log_warn() {
@@ -491,7 +491,7 @@ log_warn() {
     local depth=$2
 
     log_pad $depth
-    echo "Warning: $message" >> $log_file
+    echo "Warning: $message" >> $write_directory$log_file
 }
 
 log_out() {
@@ -499,14 +499,14 @@ log_out() {
     local depth=$2
 
     log_pad $depth
-    echo "$message" >> $log_file
+    echo "$message" >> $write_directory$log_file
 }
 
 log_pad() {
     local -i depth=$1
 
     if [[ $depth -gt 0 ]] ; then
-        printf "%${depth}s" " " >> $log_file
+        printf "%${depth}s" " " >> $write_directory$log_file
     fi
 }
 
@@ -514,7 +514,7 @@ log_pad() {
     local -i depth=$1
 
     if [[ $depth -gt 0 ]] ; then
-        printf "%${depth}s" " " >> $log_file
+        printf "%${depth}s" " " >> $write_directory$log_file
     fi
 }
 
