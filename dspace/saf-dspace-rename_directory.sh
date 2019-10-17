@@ -56,6 +56,7 @@ main() {
     # additional parameters
     local start_stamp=
     local source_directory=
+    local write_directory=$(echo $PWD | sed -e 's|//*|/|g' -e 's|/*$|/|')
     local -a columns=("Serial ID" "DOI" "Title" "Journal Title")
     local column_names=
     local file_map=
@@ -131,6 +132,8 @@ main() {
                     fi
                 elif [[ $parameter == "-V" || $parameter == "--validate" ]] ; then
                     process_action="validate"
+                elif [[ $parameter == "-w" || $parameter == "--write_directory" ]] ; then
+                    grab_next="$parameter"
                 elif [[ $source_directory == "" ]] ; then
                     source_directory="$parameter"
                 else
@@ -149,6 +152,9 @@ main() {
                     grab_next=
                 elif [[ $grab_next == "-m" || $grab_next == "--map" ]] ; then
                     file_map=$(echo "$parameter" | sed -e 's|//*|/|g')
+                    grab_next=
+                elif [[ $grab_next == "-w" || $grab_next == "--write_directory" ]] ; then
+                    write_directory=$(echo "$parameter" | sed -e 's|//*|/|g' -e 's|/*$|/|')
                     grab_next=
                 else
                     break
@@ -777,7 +783,7 @@ log_error() {
     local depth=$2
 
     log_pad $depth
-    echo "Error: $message" >> $log_file
+    echo "Error: $message" >> $write_directory$log_file
 }
 
 log_warn() {
@@ -785,7 +791,7 @@ log_warn() {
     local depth=$2
 
     log_pad $depth
-    echo "Warning: $message" >> $log_file
+    echo "Warning: $message" >> $write_directory$log_file
 }
 
 log_out() {
@@ -793,14 +799,14 @@ log_out() {
     local depth=$2
 
     log_pad $depth
-    echo "$message" >> $log_file
+    echo "$message" >> $write_directory$log_file
 }
 
 log_pad() {
     local -i depth=$1
 
     if [[ $depth -gt 0 ]] ; then
-        printf "%${depth}s" " " >> $log_file
+        printf "%${depth}s" " " >> $write_directory$log_file
     fi
 }
 
@@ -808,7 +814,7 @@ log_pad() {
     local -i depth=$1
 
     if [[ $depth -gt 0 ]] ; then
-        printf "%${depth}s" " " >> $log_file
+        printf "%${depth}s" " " >> $write_directory$log_file
     fi
 }
 
@@ -991,6 +997,7 @@ print_help() {
     echo_out_e " -${c_i}P${c_r}, --${c_i}progress${c_r}  Display progress instead of normal output."
     echo_out_e " -${c_i}s${c_r}, --${c_i}silent${c_r}    Do not print to the screen."
     echo_out_e " -${c_i}V${c_r}, --${c_i}validate${c_r}  Do not perform renaming, only validate mapping file."
+    echo_out_e " -${c_i}w${c_r}, --${c_i}write_directory${c_r}  Write logs within this directory (currently: '$c_n$write_directory$c_r')."
     echo_out
     echo_out_e "Warning: ${c_i}legacy${c_r} mode is not guaranteed to work as it only has workarounds for known issues."
     echo_out

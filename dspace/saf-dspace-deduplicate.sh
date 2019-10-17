@@ -50,6 +50,7 @@ main() {
     local -i echo_buffer_count=0
     local -i alternative_checksum=0
     local source_directory=
+    local write_directory=$(echo $PWD | sed -e 's|//*|/|g' -e 's|/*$|/|')
     local document_name_prefix="document-"
     local contents_file="contents"
     local bundle_name="$(echo -e "\tbundle:ORIGINAL")"
@@ -133,6 +134,8 @@ main() {
                     elif [[ $output_mode -eq 1 ]] ; then
                         let output_mode=3
                     fi
+                elif [[ $parameter == "-w" || $parameter == "--write_directory" ]] ; then
+                    grab_next="$parameter"
                 elif [[ $source_directory == "" ]] ; then
                     source_directory=$(echo "$parameter" | sed -e 's|//*|/|g' -e 's|/*$|/|')
                 else
@@ -151,6 +154,9 @@ main() {
                     grab_next=
                 elif [[ $grab_next == "-r" || $grab_next == "--rename_to" ]] ; then
                     document_name_prefix="$parameter"
+                    grab_next=
+                elif [[ $grab_next == "-w" || $grab_next == "--write_directory" ]] ; then
+                    write_directory=$(echo "$parameter" | sed -e 's|//*|/|g' -e 's|/*$|/|')
                     grab_next=
                 else
                     break
@@ -845,7 +851,7 @@ log_error() {
     local depth=$2
 
     log_pad $depth
-    echo "Error: $message" >> $log_file
+    echo "Error: $message" >> $write_directory$log_file
 }
 
 log_warn() {
@@ -853,7 +859,7 @@ log_warn() {
     local depth=$2
 
     log_pad $depth
-    echo "Warning: $message" >> $log_file
+    echo "Warning: $message" >> $write_directory$log_file
 }
 
 log_out() {
@@ -861,14 +867,14 @@ log_out() {
     local depth=$2
 
     log_pad $depth
-    echo "$message" >> $log_file
+    echo "$message" >> $write_directory$log_file
 }
 
 log_pad() {
     local -i depth=$1
 
     if [[ $depth -gt 0 ]] ; then
-        printf "%${depth}s" " " >> $log_file
+        printf "%${depth}s" " " >> $write_directory$log_file
     fi
 }
 
@@ -876,7 +882,7 @@ log_pad() {
     local -i depth=$1
 
     if [[ $depth -gt 0 ]] ; then
-        printf "%${depth}s" " " >> $log_file
+        printf "%${depth}s" " " >> $write_directory$log_file
     fi
 }
 
@@ -1028,16 +1034,17 @@ print_help() {
     echo_out_e "  $c_i$script_pathname$c_r ${c_n}[${c_r}options${c_n}]${c_r} ${c_n}<${c_r}source directory${c_n}>${c_r}"
     echo_out
     echo_out_e "${c_h}Options:$c_r"
-    echo_out_e " -${c_i}c${c_r}, --${c_i}checksum${c_r}   Specify a custom checksum utility (currently: '$c_n$checksum_command$c_r')."
-    echo_out_e " -${c_i}f${c_r}, --${c_i}file${c_r}       Specify a custom 'contents' file (currently: '$c_n$contents_file$c_r')."
-    echo_out_e " -${c_i}h${c_r}, --${c_i}help${c_r}       Print this help screen."
-    echo_out_e "     --${c_i}legacy${c_r}     Enable compatibility mode with legacy software versions, such as Bash 3.x."
-    echo_out_e " -${c_i}l${c_r}, --${c_i}log_file${c_r}   Specify a custom log file name (currently: '$c_n$log_file$c_r')."
-    echo_out_e " -${c_i}n${c_r}, --${c_i}no_color${c_r}   Do not apply color changes when printing output to screen."
-    echo_out_e " -${c_i}p${c_r}, --${c_i}preserve${c_r}   Preserve the original file names instead of renaming."
-    echo_out_e " -${c_i}P${c_r}, --${c_i}progress${c_r}   Display progress instead of normal output."
-    echo_out_e " -${c_i}r${c_r}, --${c_i}rename_to${c_r}  Specify a custom rename to filename prefix (currently: '$c_n$document_name_prefix$c_r')."
-    echo_out_e " -${c_i}s${c_r}, --${c_i}silent${c_r}     Do not print to the screen."
+    echo_out_e " -${c_i}c${c_r}, --${c_i}checksum${c_r}         Specify a custom checksum utility (currently: '$c_n$checksum_command$c_r')."
+    echo_out_e " -${c_i}f${c_r}, --${c_i}file${c_r}             Specify a custom 'contents' file (currently: '$c_n$contents_file$c_r')."
+    echo_out_e " -${c_i}h${c_r}, --${c_i}help${c_r}             Print this help screen."
+    echo_out_e "     --${c_i}legacy${c_r}           Enable compatibility mode with legacy software versions, such as Bash 3.x."
+    echo_out_e " -${c_i}l${c_r}, --${c_i}log_file${c_r}         Specify a custom log file name (currently: '$c_n$log_file$c_r')."
+    echo_out_e " -${c_i}n${c_r}, --${c_i}no_color${c_r}         Do not apply color changes when printing output to screen."
+    echo_out_e " -${c_i}p${c_r}, --${c_i}preserve${c_r}         Preserve the original file names instead of renaming."
+    echo_out_e " -${c_i}P${c_r}, --${c_i}progress${c_r}         Display progress instead of normal output."
+    echo_out_e " -${c_i}r${c_r}, --${c_i}rename_to${c_r}        Specify a custom rename to filename prefix (currently: '$c_n$document_name_prefix$c_r')."
+    echo_out_e " -${c_i}s${c_r}, --${c_i}silent${c_r}           Do not print to the screen."
+    echo_out_e " -${c_i}w${c_r}, --${c_i}write_directory${c_r}  Write logs within this directory (currently: '$c_n$write_directory$c_r')."
     echo_out
     echo_out_e "When --${c_i}preserve${c_r} is used, --${c_i}rename_to${c_r} is ignored."
     echo_out

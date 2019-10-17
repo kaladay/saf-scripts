@@ -513,7 +513,7 @@ print_help() {
     echo_out_e " -${c_i}P${c_r}, --${c_i}progress${c_r}         Display progress instead of normal output."
     echo_out_e " -${c_i}s${c_r}, --${c_i}silent${c_r}           Do not print to the screen."
     echo_out_e " -${c_i}V${c_r}, --${c_i}validate${c_r}         Do not perform renaming, only validate mapping file."
-    echo_out_e " -${c_i}w${c_r}, --${c_i}write_directory${c_r}  Write log within this directory (currently: '$c_n$write_directory$c_r')."
+    echo_out_e " -${c_i}w${c_r}, --${c_i}write_directory${c_r}  Write logs within this directory (currently: '$c_n$write_directory$c_r')."
     echo_out
     echo_out_e "Warning: ${c_i}legacy${c_r} mode is not guaranteed to work as it only has workarounds for known issues."
     echo_out
