@@ -42,6 +42,9 @@ main() {
     local bundle_name="bundle:ORIGINAL"
     local -i update_contents_file=1
     local -i problematic_processed=0
+    local -i process_duplicates=1
+    local -i process_invalid=1
+    local -i process_missing=1
 
     # logging
     local log_file="changes.log"
@@ -231,6 +234,13 @@ main() {
         fi
     fi
 
+    if [[ $process_duplicates -eq 0 && $process_invalid -eq 0 && $process_missing -eq 0 ]] ; then
+        echo_out2
+        echo_error "No operations to perform, please enable at least one of the processors: '${c_n}duplicates$c_e', '${c_n}invalid$c_e', or '${c_n}missing$c_e'."
+        echo_out2
+        return 1
+    fi
+
     remove_problems
     return $?
 }
@@ -247,19 +257,30 @@ remove_problems() {
         log_out "====== Analyzing Problems Directory: '$problems_directory' ($start_stamp) ======"
     fi
 
-    remove_duplicates
-    if [[ $? -ne 0 ]] ; then
-        return 1
+    if [[ $process_duplicates -eq 1 ]] ; then
+        remove_problem "Duplicate" "duplicates"
+        if [[ $? -ne 0 ]] ; then
+            return 1
+        fi
     fi
 
-    remove_missing
-    if [[ $? -ne 0 ]] ; then
-        return 1
+    if [[ $process_invalid -eq 1 ]] ; then
+        remove_problem "Invalid" "invalid"
+        if [[ $? -ne 0 ]] ; then
+            return 1
+        fi
+    fi
+
+    if [[ $process_missing -eq 1 ]] ; then
+        remove_missing
+        if [[ $? -ne 0 ]] ; then
+            return 1
+        fi
     fi
 
     if [[ $problematic_processed -eq 0 ]] ; then
         echo_out2
-        echo_warn "No files ending in \"${c_n}.duplicates$c_w\",  \"${c_n}.invalid$c_w\", or \"${c_n}.missing$c_w\" found in Problems Directory: '$c_n$problems_directory$c_w'." 2
+        echo_warn "No files ending in \"${c_n}.duplicates$c_w\", \"${c_n}.invalid$c_w\", or \"${c_n}.missing$c_w\" found in Problems Directory: '$c_n$problems_directory$c_w'." 2
         echo_out2
         log_warn "No files ending in \".duplicates\",  \".invalid\", or \".missing\" found in Problems Directory: '$problems_directory'." 2
     fi
@@ -267,40 +288,41 @@ remove_problems() {
     return 0
 }
 
-remove_duplicates() {
+remove_problem() {
+    local problem_label="$1"
+    local problem_extension="$2"
     local index=
     local -i failure=0
-    local -a duplicates=()
-    local -i duplicates_total=0
+    local -a problem_files=()
+    local -i problem_files_total=0
     local files=
     local file_name=
-    local duplicates_file=
+    local problem_file=
     local directory=
     local directory_name=
-    local duplicate_name=
 
     # build a list of files within the specified problems directory to process.
-    for index in $($find_command $problems_directory -nowarn -mindepth 1 -maxdepth 1 -type f -name '*\.duplicates') ; do
-        duplicates["$duplicates_total"]=$(basename $index | sed -e 's|\.duplicates$||')
-        let duplicates_total++
+    for index in $($find_command $problems_directory -nowarn -mindepth 1 -maxdepth 1 -type f -name "*\.$problem_extension") ; do
+        problem_files["$problem_files_total"]=$(basename $index | sed -e "s|\.$problem_extension\$||")
+        let problem_files_total++
     done
 
-    if [[ $duplicates_total -eq 0 ]] ; then
+    if [[ $problem_files_total -eq 0 ]] ; then
         return 0
     fi
 
     let problematic_processed=1
 
-    for index in ${!duplicates[@]} ; do
-        directory_name=${duplicates[$index]}
+    for index in ${!problem_files[@]} ; do
+        directory_name=${problem_files[$index]}
         directory="${directory_name}/"
-        duplicates_file="${directory_name}.duplicates"
+        problem_file="${directory_name}.$problem_extension"
 
         echo_out
-        echo_out_e "${c_t}Now Processing Duplicates File:$c_r $c_n$duplicates_file$c_r"
+        echo_out_e "${c_t}Now Processing $problem_label File:$c_r $c_n$problem_file$c_r"
 
         log_out
-        log_out "===== Processing Duplicates File: '$duplicates_file' ====="
+        log_out "===== Processing $problem_label File: '$problem_file' ====="
 
         if [[ ! -d "$source_directory$directory" ]] ; then
             echo_error "Directory not found: '$c_n$directory_name$c_w'." 2
@@ -310,33 +332,33 @@ remove_duplicates() {
             continue
         fi
 
-        files=$(cat $problems_directory$duplicates_file | sed -e "s|^[[:space:]]*||" -e "s|[[:space:]].*\$||")
+        files=$(cat $problems_directory$problem_file | sed -e "s|^[[:space:]]*||" -e "s|[[:space:]].*\$||")
         if [[ $files == "" ]] ; then
-            echo_warn "Empty duplicates file: '$c_n$duplicates_file$c_w'." 2
+            echo_warn "Empty $problem_label file: '$c_n$problem_file$c_w'." 2
             echo_out2
-            log_warn "Empty duplicates file: '$problems_directory$duplicates_file'." 2
+            log_warn "Empty $problem_label file: '$problems_directory$problem_file'." 2
             continue
         fi
 
         for file_name in $files ; do
             if [[ ! -f $source_directory$directory$file_name ]] ; then
-                echo_warn "Duplicate file not found: '$c_n$file_name$c_w'." 2
+                echo_warn "$problem_label file not found: '$c_n$file_name$c_w'." 2
                 echo_out2
-                log_warn "Duplicate file not found: '$source_directory$directory$file_name'." 2
+                log_warn "$problem_label file not found: '$source_directory$directory$file_name'." 2
                 continue
             fi
 
             rm -f $source_directory$directory$file_name
             if [[ $? -ne 0 ]] ; then
-                echo_error "Failed to delete duplicate file: '$c_n$file_name$c_w'." 2
+                echo_error "Failed to delete $problem_label file: '$c_n$file_name$c_w'." 2
                 echo_out2
-                log_error "Failed to delete duplicate file: '$source_directory$directory$file_name'." 2
+                log_error "Failed to delete $problem_label file: '$source_directory$directory$file_name'." 2
                 let failure=1
                 continue
             fi
 
-            echo_out_e "Deleted duplicate file: '$c_n$file_name'$c_r" 2
-            log_out "Deleted duplicate file: '$source_directory$directory$file_name'" 2
+            echo_out_e "Deleted $problem_label file: '$c_n$file_name'$c_r" 2
+            log_out "Deleted $problem_label file: '$source_directory$directory$file_name'" 2
 
             if [[ $update_contents_file -eq 1 && -f $source_directory$directory$contents_file ]] ; then
                 sed -i -e "/^$file_name[[:space:]][[:space:]]*${bundle_name}[[:space:]]*\$/d" $source_directory$directory$contents_file
@@ -348,8 +370,8 @@ remove_duplicates() {
                     sed -i -e ':a;N;$!ba;s/\n\n\n/\n\n/g' $source_directory$directory$contents_file
 
                     if [[ $? -eq 0 ]] ; then
-                        echo_out_e "Removed duplicate newlines in contents file: '$c_n$contents_file'$c_r" 4
-                        log_out "Removed duplicate newlines in contents file: '$source_directory$directory$contents_file'" 4
+                        echo_out_e "Removed invalid newlines in contents file: '$c_n$contents_file'$c_r" 4
+                        log_out "Removed invalid newlines in contents file: '$source_directory$directory$contents_file'" 4
                     else
                         echo_warn "Failed to remove excess newlines in contents file: '$c_n$contents_file$c_w'." 4
                         log_warn "Failed to remove excess newlines in contents file: '$source_directory$directory$contents_file'." 4
@@ -381,7 +403,6 @@ remove_missing() {
     local missing_file=
     local directory=
     local directory_name=
-    local duplicate_name=
 
     # build a list of files within the specified problems directory to process.
     for index in $($find_command $problems_directory -nowarn -mindepth 1 -maxdepth 1 -type f -name '*\.missing') ; do
@@ -456,6 +477,8 @@ remove_missing() {
             echo_out
         done
     done
+
+    return $failure
 }
 
 log_error() {
@@ -666,7 +689,7 @@ main "$@"
 
 unset main
 unset remove_problems
-unset remove_duplicates
+unset remove_problem
 unset remove_missing
 unset log_error
 unset log_warn
