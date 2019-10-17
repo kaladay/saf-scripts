@@ -41,6 +41,7 @@ main() {
     local contents_file="contents"
     local bundle_name="bundle:ORIGINAL"
     local -i update_contents_file=1
+    local -i problematic_processed=0
 
     # logging
     local log_file="changes.log"
@@ -251,6 +252,18 @@ remove_problems() {
         return 1
     fi
 
+    remove_missing
+    if [[ $? -ne 0 ]] ; then
+        return 1
+    fi
+
+    if [[ $problematic_processed -eq 0 ]] ; then
+        echo_out2
+        echo_warn "No files ending in \"${c_n}.duplicates$c_w\",  \"${c_n}.invalid$c_w\", or \"${c_n}.missing$c_w\" found in Problems Directory: '$c_n$problems_directory$c_w'." 2
+        echo_out2
+        log_warn "No files ending in \".duplicates\",  \".invalid\", or \".missing\" found in Problems Directory: '$problems_directory'." 2
+    fi
+
     return 0
 }
 
@@ -266,19 +279,17 @@ remove_duplicates() {
     local directory_name=
     local duplicate_name=
 
-    # build a list of files within the specified duplicates directory to process.
+    # build a list of files within the specified problems directory to process.
     for index in $($find_command $problems_directory -nowarn -mindepth 1 -maxdepth 1 -type f -name '*\.duplicates') ; do
         duplicates["$duplicates_total"]=$(basename $index | sed -e 's|\.duplicates$||')
         let duplicates_total++
     done
 
     if [[ $duplicates_total -eq 0 ]] ; then
-        echo_out2
-        echo_warn "No files ending in \".duplicates\" found in Problems Directory: '$c_n$problems_directory$c_w'." 2
-        echo_out2
-        log_warn "No files ending in \".duplicates\" found in Problems Directory: '$problems_directory'." 2
         return 0
     fi
+
+    let problematic_processed=1
 
     for index in ${!duplicates[@]} ; do
         directory_name=${duplicates[$index]}
@@ -330,22 +341,22 @@ remove_duplicates() {
             if [[ $update_contents_file -eq 1 && -f $source_directory$directory$contents_file ]] ; then
                 sed -i -e "/^$file_name[[:space:]][[:space:]]*${bundle_name}[[:space:]]*\$/d" $source_directory$directory$contents_file
 
-                if [[ $? -ne 0 ]] ; then
-                    echo_warn "Failed to update contents file: '$c_n$contents_file$c_w'." 4
-                    log_warn "Failed to update contents file: '$source_directory$directory$contents_file'." 4
-                else
+                if [[ $? -eq 0 ]] ; then
                     echo_out_e "Updated contents file: '$c_n$contents_file'$c_r" 4
                     log_out "Updated contents file: '$source_directory$directory$contents_file'" 4
 
-                    sed -i -e ':a;N;$!ba;s/\n\n/\n/g' $source_directory$directory$contents_file
+                    sed -i -e ':a;N;$!ba;s/\n\n\n/\n\n/g' $source_directory$directory$contents_file
 
-                    if [[ $? -ne 0 ]] ; then
-                        echo_warn "Failed to remove excess newlines in contents file: '$c_n$contents_file$c_w'." 4
-                        log_warn "Failed to remove excess newlines in contents file: '$source_directory$directory$contents_file'." 4
-                    else
+                    if [[ $? -eq 0 ]] ; then
                         echo_out_e "Removed duplicate newlines in contents file: '$c_n$contents_file'$c_r" 4
                         log_out "Removed duplicate newlines in contents file: '$source_directory$directory$contents_file'" 4
+                    else
+                        echo_warn "Failed to remove excess newlines in contents file: '$c_n$contents_file$c_w'." 4
+                        log_warn "Failed to remove excess newlines in contents file: '$source_directory$directory$contents_file'." 4
                     fi
+                else
+                    echo_warn "Failed to update contents file: '$c_n$contents_file$c_w'." 4
+                    log_warn "Failed to update contents file: '$source_directory$directory$contents_file'." 4
                 fi
 
                 echo_out
@@ -354,6 +365,97 @@ remove_duplicates() {
     done
 
     return $failure
+}
+
+remove_missing() {
+    if [[ $update_contents_file -eq 0 ]] ; then
+        return 0
+    fi
+
+    local index=
+    local -i failure=0
+    local -a missing_files=()
+    local -i missing_files_total=0
+    local files=
+    local file_name=
+    local missing_file=
+    local directory=
+    local directory_name=
+    local duplicate_name=
+
+    # build a list of files within the specified problems directory to process.
+    for index in $($find_command $problems_directory -nowarn -mindepth 1 -maxdepth 1 -type f -name '*\.missing') ; do
+        missing_files["$missing_files_total"]=$(basename $index | sed -e 's|\.missing$||')
+        let missing_files_total++
+    done
+
+    if [[ $missing_files_total -eq 0 ]] ; then
+        return 0
+    fi
+
+    let problematic_processed=1
+
+    for index in ${!missing_files[@]} ; do
+        directory_name=${missing_files[$index]}
+        directory="${directory_name}/"
+        missing_file="${directory_name}.missing"
+
+        echo_out
+        echo_out_e "${c_t}Now Processing Missing File:$c_r $c_n$missing_file$c_r"
+
+        log_out
+        log_out "===== Processing Missing File: '$missing_file' ====="
+
+        if [[ ! -d "$source_directory$directory" ]] ; then
+            echo_error "Directory not found: '$c_n$directory_name$c_w'." 2
+            echo_out2
+            log_error "Directory not found: '$source_directory$directory'." 2
+            failure=1
+            continue
+        fi
+
+        if [[ ! -f $source_directory$directory$contents_file ]] ; then
+            echo_warn "Contents file not found: '$c_n$directory$contents_file$c_w'." 2
+            echo_out2
+            log_warn "Contents file not found: '$source_directory$directory$contents_file'." 2
+            continue
+        fi
+
+        files=$(cat $problems_directory$missing_file | sed -e "s|^[[:space:]]*||" -e "s|[[:space:]].*\$||")
+        if [[ $files == "" ]] ; then
+            echo_warn "Empty missing file: '$c_n$missing_file$c_w'." 2
+            echo_out2
+            log_warn "Empty missing file: '$problems_directory$missing_file'." 2
+            continue
+        fi
+
+        for file_name in $files ; do
+            echo_out_e "Removing '$c_n$file_name$c_r' from contents file: '$c_n$contents_file'$c_r" 2
+            log_out "Removing '$file_name' from contents file: '$source_directory$directory$contents_file'" 2
+
+            sed -i -e "/^$file_name[[:space:]][[:space:]]*${bundle_name}[[:space:]]*\$/d" $source_directory$directory$contents_file
+
+            if [[ $? -eq 0 ]] ; then
+                echo_out_e "Updated contents file: '$c_n$contents_file'$c_r" 4
+                log_out "Updated contents file: '$source_directory$directory$contents_file'" 4
+
+                sed -i -e ':a;N;$!ba;s/\n\n\n/\n\n/g' $source_directory$directory$contents_file
+
+                if [[ $? -eq 0 ]] ; then
+                    echo_out_e "Removed duplicate newlines in contents file: '$c_n$contents_file'$c_r" 4
+                    log_out "Removed duplicate newlines in contents file: '$source_directory$directory$contents_file'" 4
+                else
+                    echo_warn "Failed to remove excess newlines in contents file: '$c_n$contents_file$c_w'." 4
+                    log_warn "Failed to remove excess newlines in contents file: '$source_directory$directory$contents_file'." 4
+                fi
+            else
+                echo_warn "Failed to update contents file: '$c_n$contents_file$c_w'." 4
+                log_warn "Failed to update contents file: '$source_directory$directory$contents_file'." 4
+            fi
+
+            echo_out
+        done
+    done
 }
 
 log_error() {
@@ -565,6 +667,7 @@ main "$@"
 unset main
 unset remove_problems
 unset remove_duplicates
+unset remove_missing
 unset log_error
 unset log_warn
 unset log_out
