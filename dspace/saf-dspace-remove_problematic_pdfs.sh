@@ -38,6 +38,9 @@ main() {
     local problems_directory=
     local source_directory=
     local write_directory=$(echo $PWD | sed -e 's|//*|/|g' -e 's|/*$|/|')
+    local contents_file="contents"
+    local bundle_name="bundle:ORIGINAL"
+    local -i update_contents_file=1
 
     # logging
     local log_file="changes.log"
@@ -90,6 +93,10 @@ main() {
                     elif [[ $output_mode -eq 2 ]] ; then
                         let output_mode=3
                     fi
+                elif [[ $parameter == "-u" || $parameter == "--update_contents_file" ]] ; then
+                    let update_contents_file=1
+                elif [[ $parameter == "-U" || $parameter == "--ignore_contents_file" ]] ; then
+                    let update_contents_file=0
                 elif [[ $parameter == "-w" || $parameter == "--write_directory" ]] ; then
                     grab_next="$parameter"
                 elif [[ $source_directory == "" ]] ; then
@@ -318,8 +325,31 @@ remove_duplicates() {
             fi
 
             echo_out_e "Deleted duplicate file: '$c_n$file_name'$c_r" 2
-            echo_out
             log_out "Deleted duplicate file: '$source_directory$directory$file_name'" 2
+
+            if [[ $update_contents_file -eq 1 && -f $source_directory$directory$contents_file ]] ; then
+                sed -i -e "/^$file_name[[:space:]][[:space:]]*${bundle_name}[[:space:]]*\$/d" $source_directory$directory$contents_file
+
+                if [[ $? -ne 0 ]] ; then
+                    echo_warn "Failed to update contents file: '$c_n$contents_file$c_w'." 4
+                    log_warn "Failed to update contents file: '$source_directory$directory$contents_file'." 4
+                else
+                    echo_out_e "Updated contents file: '$c_n$contents_file'$c_r" 4
+                    log_out "Updated contents file: '$source_directory$directory$contents_file'" 4
+
+                    sed -i -e ':a;N;$!ba;s/\n\n/\n/g' $source_directory$directory$contents_file
+
+                    if [[ $? -ne 0 ]] ; then
+                        echo_warn "Failed to remove excess newlines in contents file: '$c_n$contents_file$c_w'." 4
+                        log_warn "Failed to remove excess newlines in contents file: '$source_directory$directory$contents_file'." 4
+                    else
+                        echo_out_e "Removed duplicate newlines in contents file: '$c_n$contents_file'$c_r" 4
+                        log_out "Removed duplicate newlines in contents file: '$source_directory$directory$contents_file'" 4
+                    fi
+                fi
+
+                echo_out
+            fi
         done
     done
 
@@ -515,14 +545,16 @@ print_help() {
     echo_out_e "  $c_i$script_pathname$c_r ${c_n}[${c_r}options${c_n}]${c_r} ${c_n}<${c_r}source directory${c_n}>${c_r} ${c_n}<${c_r}duplicates directory${c_n}>${c_r}"
     echo_out
     echo_out_e "${c_h}Options:$c_r"
-    echo_out_e " -${c_i}h${c_r}, --${c_i}help${c_r}             Print this help screen."
-    echo_out_e "     --${c_i}legacy${c_r}           Enable compatibility mode with legacy software versions, such as Bash 3.x."
-    echo_out_e " -${c_i}l${c_r}, --${c_i}log_file${c_r}         Specify a custom log file name (currently: '$c_n$log_file$c_r')."
-    echo_out_e " -${c_i}n${c_r}, --${c_i}no_color${c_r}         Do not apply color changes when printing output to screen."
-    echo_out_e " -${c_i}P${c_r}, --${c_i}progress${c_r}         Display progress instead of normal output."
-    echo_out_e " -${c_i}s${c_r}, --${c_i}silent${c_r}           Do not print to the screen."
-    echo_out_e " -${c_i}V${c_r}, --${c_i}validate${c_r}         Do not perform renaming, only validate mapping file."
-    echo_out_e " -${c_i}w${c_r}, --${c_i}write_directory${c_r}  Write logs within this directory (currently: '$c_n$write_directory$c_r')."
+    echo_out_e " -${c_i}h${c_r}, --${c_i}help${c_r}                  Print this help screen."
+    echo_out_e "     --${c_i}legacy${c_r}                Enable compatibility mode with legacy software versions, such as Bash 3.x."
+    echo_out_e " -${c_i}l${c_r}, --${c_i}log_file${c_r}              Specify a custom log file name (currently: '$c_n$log_file$c_r')."
+    echo_out_e " -${c_i}n${c_r}, --${c_i}no_color${c_r}              Do not apply color changes when printing output to screen."
+    echo_out_e " -${c_i}P${c_r}, --${c_i}progress${c_r}              Display progress instead of normal output."
+    echo_out_e " -${c_i}s${c_r}, --${c_i}silent${c_r}                Do not print to the screen."
+    echo_out_e " -${c_i}V${c_r}, --${c_i}validate${c_r}              Do not perform renaming, only validate mapping file."
+    echo_out_e " -${c_i}u${c_r}, --${c_i}update_contents_file${c_r}  Enable updating of the contents file after making changes."
+    echo_out_e " -${c_i}U${c_r}, --${c_i}ignore_contents_file${c_r}  Disable updating of the contents file after making changes."
+    echo_out_e " -${c_i}w${c_r}, --${c_i}write_directory${c_r}       Write logs within this directory (currently: '$c_n$write_directory$c_r')."
     echo_out
     echo_out_e "Warning: ${c_i}legacy${c_r} mode is not guaranteed to work as it only has workarounds for known issues."
     echo_out
