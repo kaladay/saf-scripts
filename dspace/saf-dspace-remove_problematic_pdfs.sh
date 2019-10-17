@@ -1,8 +1,8 @@
 #!/bin/bash
 #
-# Remove duplicate PDFs using results from saf-dspace-find_problematic_pdfs.sh script.
+# Remove problematic PDFs using results from saf-dspace-find_problematic_pdfs.sh script.
 #
-# This process all files with the extension ".duplicates" within the top-level of the specified duplicates directory.
+# This process all files with the extension ".duplicates" within the top-level of the specified problems directory.
 # This does not recursively search through sub-directories.
 #
 # Duplicate files found within the given source directory are removed.
@@ -10,7 +10,7 @@
 #
 # Example Usage:
 #   ```
-#   saf-dspace-remove_duplicate_pdfs.sh source_directory duplicates_directory
+#   saf-dspace-remove_problematic_pdfs.sh source_directory problems_directory
 #   ```
 #
 # depends on the following userspace commands:
@@ -35,7 +35,7 @@ main() {
 
     # additional parameters
     local start_stamp=
-    local duplicates_directory=
+    local problems_directory=
     local source_directory=
     local write_directory=$(echo $PWD | sed -e 's|//*|/|g' -e 's|/*$|/|')
 
@@ -94,8 +94,8 @@ main() {
                     grab_next="$parameter"
                 elif [[ $source_directory == "" ]] ; then
                     source_directory=$(echo $parameter | sed -e 's|//*|/|g' -e 's|/*$|/|')
-                elif [[ $duplicates_directory == "" ]] ; then
-                    duplicates_directory=$(echo $parameter | sed -e 's|//*|/|g' -e 's|/*$|/|')
+                elif [[ $problems_directory == "" ]] ; then
+                    problems_directory=$(echo $parameter | sed -e 's|//*|/|g' -e 's|/*$|/|')
                 else
                     extra_parameters[${extra_parameters_total}]="$parameter"
                     let extra_parameters_total++
@@ -132,7 +132,7 @@ main() {
     if [[ $extra_parameters_total -gt 0 ]] ; then
         let i=0
         echo_out2
-        local custom_message="only one source directory and one duplicates directory may be specified at a time, you specified '$c_n$source_directory$c_e', '$c_n$duplicates_directory$c_e'"
+        local custom_message="only one source directory and one duplicates directory may be specified at a time, you specified '$c_n$source_directory$c_e', '$c_n$problems_directory$c_e'"
         while [[ $i -lt $extra_parameters_total ]] ; do
             parameter=${extra_parameters[i]}
             custom_message="$custom_message, '$c_n$parameter$c_e'"
@@ -185,23 +185,23 @@ main() {
         return 1
     fi
 
-    if [[ ! -r $duplicates_directory ]] ; then
+    if [[ ! -r $problems_directory ]] ; then
         echo_out2
-        echo_error "The duplicates directory '$c_n$duplicates_directory$c_e' is not found or is not readable."
-        echo_out2
-        return 1
-    fi
-
-    if [[ ! -d $duplicates_directory ]] ; then
-        echo_out2
-        echo_error "The duplicates directory '$c_n$duplicates_directory$c_e' is not a valid directory."
+        echo_error "The problems directory '$c_n$problems_directory$c_e' is not found or is not readable."
         echo_out2
         return 1
     fi
 
-    if [[ ! -x $duplicates_directory ]] ; then
+    if [[ ! -d $problems_directory ]] ; then
         echo_out2
-        echo_error "The duplicates directory '$c_n$duplicates_directory$c_e' is not executable."
+        echo_error "The problems directory '$c_n$problems_directory$c_e' is not a valid directory."
+        echo_out2
+        return 1
+    fi
+
+    if [[ ! -x $problems_directory ]] ; then
+        echo_out2
+        echo_error "The problems directory '$c_n$problems_directory$c_e' is not executable."
         echo_out2
         return 1
     fi
@@ -223,8 +223,28 @@ main() {
         fi
     fi
 
-    remove_duplicates
+    remove_problems
     return $?
+}
+
+remove_problems() {
+    echo_out
+    echo_out_e "${c_t}Analyzing Problems Directory:$c_r $c_n$problems_directory$c_r"
+
+    log_out
+    if [[ $start_stamp == "" ]] ; then
+        log_out "====== Analyzing Problems Directory: '$problems_directory' ======"
+    else
+        echo_out "Started On: $start_stamp" 2
+        log_out "====== Analyzing Problems Directory: '$problems_directory' ($start_stamp) ======"
+    fi
+
+    remove_duplicates
+    if [[ $? -ne 0 ]] ; then
+        return 1
+    fi
+
+    return 0
 }
 
 remove_duplicates() {
@@ -239,28 +259,17 @@ remove_duplicates() {
     local directory_name=
     local duplicate_name=
 
-    echo_out
-    echo_out_e "${c_t}Analyzing Duplicates Directory:$c_r $c_n$duplicates_directory$c_r"
-
-    log_out
-    if [[ $start_stamp == "" ]] ; then
-        log_out "====== Analyzing Duplicates Directory: '$duplicates_directory' ======"
-    else
-        echo_out "Started On: $start_stamp" 2
-        log_out "====== Analyzing Duplicates Directory: '$duplicates_directory' ($start_stamp) ======"
-    fi
-
     # build a list of files within the specified duplicates directory to process.
-    for index in $($find_command $duplicates_directory -nowarn -mindepth 1 -maxdepth 1 -type f -name '*\.duplicates') ; do
+    for index in $($find_command $problems_directory -nowarn -mindepth 1 -maxdepth 1 -type f -name '*\.duplicates') ; do
         duplicates["$duplicates_total"]=$(basename $index | sed -e 's|\.duplicates$||')
         let duplicates_total++
     done
 
     if [[ $duplicates_total -eq 0 ]] ; then
         echo_out2
-        echo_warn "No files ending in \".duplicates\" found in Duplicates Directory: '$c_n$duplicates_directory$c_w'." 2
+        echo_warn "No files ending in \".duplicates\" found in Problems Directory: '$c_n$problems_directory$c_w'." 2
         echo_out2
-        log_warn "No files ending in \".duplicates\" found in Duplicates Directory: '$duplicates_directory'." 2
+        log_warn "No files ending in \".duplicates\" found in Problems Directory: '$problems_directory'." 2
         return 0
     fi
 
@@ -283,11 +292,11 @@ remove_duplicates() {
             continue
         fi
 
-        files=$(cat $duplicates_directory$duplicates_file | sed -e "s|^[[:space:]]*||" -e "s|[[:space:]].*\$||")
+        files=$(cat $problems_directory$duplicates_file | sed -e "s|^[[:space:]]*||" -e "s|[[:space:]].*\$||")
         if [[ $files == "" ]] ; then
             echo_warn "Empty duplicates file: '$c_n$duplicates_file$c_w'." 2
             echo_out2
-            log_warn "Empty duplicates file: '$duplicates_directory$duplicates_file'." 2
+            log_warn "Empty duplicates file: '$problems_directory$duplicates_file'." 2
             continue
         fi
 
@@ -522,6 +531,7 @@ print_help() {
 main "$@"
 
 unset main
+unset remove_problems
 unset remove_duplicates
 unset log_error
 unset log_warn
